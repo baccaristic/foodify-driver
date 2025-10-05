@@ -1,23 +1,75 @@
-import React, { useMemo } from 'react';
-import { SafeAreaView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  SafeAreaView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { moderateScale, verticalScale } from 'react-native-size-matters';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Region } from 'react-native-maps';
+import * as Location from 'expo-location';
 
-import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 
-const TUNIS_CENTER = {
-  latitude: 36.8065,
-  longitude: 10.1815,
-  latitudeDelta: 0.04,
-  longitudeDelta: 0.04,
+const DEFAULT_REGION = {
+  latitude: 47.5726,
+  longitude: -122.3863,
+  latitudeDelta: 0.025,
+  longitudeDelta: 0.025,
 };
 
 export const DashboardScreen: React.FC = () => {
-  const { phoneNumber, toggleOnlineStatus, isOnline, logout } = useAuth();
+  const { phoneNumber, toggleOnlineStatus, isOnline } = useAuth();
 
-  const formattedName = phoneNumber ? phoneNumber : 'RIDER';
-  const mapRegion = useMemo(() => TUNIS_CENTER, []);
+  const formattedName = (phoneNumber ? phoneNumber : 'RIDER').toUpperCase();
+  const [userRegion, setUserRegion] = useState<Region | null>(null);
+  const mapRef = useRef<MapView | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+
+        if (status !== 'granted') {
+          console.warn('Permission to access location was denied');
+          return;
+        }
+
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+
+        if (isMounted) {
+          const region: Region = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          };
+          setUserRegion(region);
+          mapRef.current?.animateToRegion(region, 500);
+        }
+      } catch (error) {
+        console.warn('Unable to fetch current location', error);
+      }
+    };
+
+    fetchLocation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleRecenter = useCallback(() => {
+    if (userRegion && mapRef.current) {
+      mapRef.current.animateToRegion(userRegion, 500);
+    }
+  }, [userRegion]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -25,29 +77,47 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.mapOuter}>
           <MapView
             style={StyleSheet.absoluteFillObject}
-            initialRegion={mapRegion}
+            initialRegion={userRegion ?? DEFAULT_REGION}
             customMapStyle={customMapStyle}
+            ref={mapRef}
           >
-            <Marker coordinate={mapRegion}>
-              <View style={styles.mapMarker}>
-                <View style={styles.markerCore} />
-              </View>
-            </Marker>
+            {userRegion && (
+              <Marker coordinate={userRegion}>
+                <View style={styles.mapMarker}>
+                  <View style={styles.markerHead}>
+                    <View style={styles.markerCore} />
+                  </View>
+                  <View style={styles.markerTail} />
+                </View>
+              </Marker>
+            )}
           </MapView>
 
           <View pointerEvents="box-none" style={styles.mapOverlay}>
             <View style={styles.header}>
-              <View style={styles.menuButton}>
+              <TouchableOpacity activeOpacity={0.8} style={styles.menuButton}>
                 <View style={styles.menuLine} />
                 <View style={styles.menuLineMedium} />
                 <View style={styles.menuLineSmall} />
-              </View>
+              </TouchableOpacity>
 
               <View style={styles.balancePill}>
                 <Text allowFontScaling={false} style={styles.balanceLabel}>
                   0,00 DT
                 </Text>
               </View>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.locationButton}
+                onPress={handleRecenter}
+                disabled={!userRegion}
+              >
+                <View style={styles.locationCircle}>
+                  <View style={styles.locationDot} />
+                </View>
+                <View style={styles.locationPointer} />
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity activeOpacity={0.85} style={styles.goButton}>
@@ -66,7 +136,7 @@ export const DashboardScreen: React.FC = () => {
               HELLO, {formattedName}
             </Text>
             <Text allowFontScaling={false} style={styles.footerSubtitle}>
-              Ready to work?
+              Ready to work ?
             </Text>
           </View>
 
@@ -77,7 +147,7 @@ export const DashboardScreen: React.FC = () => {
             <Switch
               value={isOnline}
               onValueChange={toggleOnlineStatus}
-              trackColor={{ false: '#D9D9D9', true: '#CA251B' }}
+              trackColor={{ false: '#E5E7EB', true: '#CA251B' }}
               thumbColor={isOnline ? '#ffffff' : undefined}
             />
           </View>
@@ -90,56 +160,50 @@ export const DashboardScreen: React.FC = () => {
 const customMapStyle = [
   {
     elementType: 'geometry',
-    stylers: [{ color: '#f5f5f5' }],
+    stylers: [{ color: '#f7f7f7' }],
   },
   {
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#17213A' }],
+    stylers: [{ color: '#4d4d4d' }],
   },
   {
     elementType: 'labels.text.stroke',
     stylers: [{ color: '#ffffff' }],
   },
   {
-    featureType: 'poi',
-    elementType: 'geometry',
-    stylers: [{ color: '#D9D9D9' }],
+    featureType: 'administrative.land_parcel',
+    stylers: [{ visibility: 'off' }],
   },
   {
-    featureType: 'poi.park',
-    elementType: 'geometry',
-    stylers: [{ color: '#E8EBF2' }],
+    featureType: 'poi',
+    stylers: [{ visibility: 'off' }],
   },
   {
     featureType: 'road',
-    elementType: 'geometry',
+    elementType: 'geometry.fill',
     stylers: [{ color: '#ffffff' }],
   },
   {
-    featureType: 'road.arterial',
-    elementType: 'geometry',
-    stylers: [{ color: '#fdfcf8' }],
+    featureType: 'road.highway',
+    stylers: [{ color: '#e0e0e0' }],
   },
   {
-    featureType: 'road.highway',
-    elementType: 'geometry',
-    stylers: [{ color: '#D9D9D9' }],
+    featureType: 'transit',
+    stylers: [{ visibility: 'off' }],
   },
   {
     featureType: 'water',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#CAD7F5' }],
+    stylers: [{ color: '#dfe6f2' }],
   },
 ];
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f2f3f5',
   },
   container: {
     flex: 1,
-
   },
   header: {
     flexDirection: 'row',
@@ -151,10 +215,10 @@ const styles = StyleSheet.create({
     height: moderateScale(48),
     borderRadius: moderateScale(24),
     backgroundColor: '#ffffff',
-    elevation: moderateScale(4),
-    shadowColor: 'rgba(0,0,0,0.25)',
+    elevation: moderateScale(6),
+    shadowColor: 'rgba(0,0,0,0.15)',
     shadowOpacity: 1,
-    shadowOffset: { width: 0, height: verticalScale(8) },
+    shadowOffset: { width: 0, height: verticalScale(6) },
     shadowRadius: moderateScale(12),
     justifyContent: 'center',
     alignItems: 'center',
@@ -164,107 +228,167 @@ const styles = StyleSheet.create({
     width: moderateScale(24),
     height: verticalScale(3),
     borderRadius: moderateScale(2),
-    backgroundColor: '#1f2937',
+    backgroundColor: '#CA251B',
   },
   menuLineMedium: {
     width: moderateScale(18),
     height: verticalScale(3),
     borderRadius: moderateScale(2),
-    backgroundColor: '#1f2937',
+    backgroundColor: '#CA251B',
   },
   menuLineSmall: {
     width: moderateScale(12),
     height: verticalScale(3),
     borderRadius: moderateScale(2),
-    backgroundColor: '#1f2937',
+    backgroundColor: '#CA251B',
   },
   balancePill: {
-    paddingHorizontal: moderateScale(20),
-    paddingVertical: verticalScale(12),
+    paddingHorizontal: moderateScale(22),
+    paddingVertical: verticalScale(10),
     backgroundColor: '#CA251B',
     borderRadius: moderateScale(999),
+    shadowColor: 'rgba(202, 37, 27, 0.4)',
+    shadowOffset: { width: 0, height: verticalScale(4) },
+    shadowOpacity: 0.6,
+    shadowRadius: moderateScale(10),
+    elevation: moderateScale(4),
   },
   balanceLabel: {
     color: '#ffffff',
     fontWeight: '700',
-    letterSpacing: moderateScale(0.5),
+    letterSpacing: moderateScale(0.4),
+  },
+  locationButton: {
+    width: moderateScale(48),
+    height: moderateScale(48),
+    borderRadius: moderateScale(24),
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: moderateScale(5),
+    shadowColor: 'rgba(0,0,0,0.12)',
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: verticalScale(6) },
+    shadowRadius: moderateScale(12),
+  },
+  locationCircle: {
+    width: moderateScale(20),
+    height: moderateScale(20),
+    borderRadius: moderateScale(10),
+    borderWidth: moderateScale(2),
+    borderColor: '#CA251B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationDot: {
+    width: moderateScale(6),
+    height: moderateScale(6),
+    borderRadius: moderateScale(3),
+    backgroundColor: '#CA251B',
+  },
+  locationPointer: {
+    width: 0,
+    height: 0,
+    marginTop: verticalScale(2),
+    borderLeftWidth: moderateScale(6),
+    borderRightWidth: moderateScale(6),
+    borderTopWidth: moderateScale(8),
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#CA251B',
   },
   mapOuter: {
     flex: 1,
-    borderRadius: moderateScale(24),
     overflow: 'hidden',
-    marginVertical: verticalScale(8),
     position: 'relative',
   },
   mapOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'space-between',
     paddingHorizontal: moderateScale(24),
-    paddingTop: verticalScale(16),
-    paddingBottom: verticalScale(24),
+    paddingTop: verticalScale(18),
+    paddingBottom: verticalScale(28),
   },
   mapMarker: {
-    width: moderateScale(76),
-    height: moderateScale(76),
-    borderRadius: moderateScale(38),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markerHead: {
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(20),
     backgroundColor: '#CA251B',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 2,
   },
   markerCore: {
-    width: moderateScale(32),
-    height: moderateScale(32),
-    borderRadius: moderateScale(16),
+    width: moderateScale(12),
+    height: moderateScale(12),
+    borderRadius: moderateScale(6),
     backgroundColor: '#ffffff',
+  },
+  markerTail: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: moderateScale(8),
+    borderRightWidth: moderateScale(8),
+    borderTopWidth: moderateScale(10),
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#CA251B',
   },
   goButton: {
     alignSelf: 'center',
-    width: moderateScale(156),
-    height: moderateScale(156),
-    borderRadius: moderateScale(78),
+    width: moderateScale(140),
+    height: moderateScale(140),
+    borderRadius: moderateScale(70),
     backgroundColor: '#CA251B',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(0,0,0,0.25)',
-    shadowOffset: { width: 0, height: verticalScale(12) },
+    shadowColor: 'rgba(0,0,0,0.2)',
+    shadowOffset: { width: 0, height: verticalScale(14) },
     shadowOpacity: 1,
-    shadowRadius: moderateScale(24),
-    elevation: moderateScale(10),
+    shadowRadius: moderateScale(30),
+    elevation: moderateScale(12),
   },
   goRing: {
-    width: moderateScale(120),
-    height: moderateScale(120),
-    borderRadius: moderateScale(60),
-    borderWidth: moderateScale(8),
+    width: moderateScale(108),
+    height: moderateScale(108),
+    borderRadius: moderateScale(54),
+    borderWidth: moderateScale(10),
     borderColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   goLabel: {
-    fontSize: moderateScale(36),
+    fontSize: moderateScale(30),
     fontWeight: '800',
     color: '#ffffff',
-    letterSpacing: moderateScale(2),
+    letterSpacing: moderateScale(1.2),
   },
   footer: {
     backgroundColor: '#ffffff',
-    paddingHorizontal: moderateScale(20),
-    paddingVertical: verticalScale(18),
+    paddingHorizontal: moderateScale(24),
+    paddingVertical: verticalScale(24),
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: moderateScale(1),
-    borderColor: '#D9D9D9',
+    shadowColor: 'rgba(15, 23, 42, 0.12)',
+    shadowOffset: { width: 0, height: verticalScale(8) },
+    shadowOpacity: 1,
+    shadowRadius: moderateScale(20),
+    elevation: moderateScale(10),
   },
   footerGreeting: {
     fontSize: moderateScale(16),
     fontWeight: '700',
     color: '#17213A',
+    letterSpacing: moderateScale(0.6),
   },
   footerSubtitle: {
     fontSize: moderateScale(14),
-    color: '#4B5563',
+    color: '#6B7280',
+    marginTop: verticalScale(2),
   },
   statusWrapper: {
     flexDirection: 'row',
@@ -273,6 +397,7 @@ const styles = StyleSheet.create({
   statusLabel: {
     marginRight: moderateScale(8),
     fontSize: moderateScale(14),
-    color: '#4B5563',
-  }
+    color: '#9CA3AF',
+    textTransform: 'capitalize',
+  },
 });
