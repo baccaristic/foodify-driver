@@ -22,20 +22,6 @@ export const DashboardScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.menuButton}>
-            <View style={styles.menuLine} />
-            <View style={styles.menuLineMedium} />
-            <View style={styles.menuLineSmall} />
-          </View>
-
-          <View style={styles.balancePill}>
-            <Text allowFontScaling={false} style={styles.balanceLabel}>
-              0,00 DT
-            </Text>
-          </View>
-        </View>
-
         <View style={styles.mapOuter}>
           <MapView
             style={StyleSheet.absoluteFillObject}
@@ -50,13 +36,29 @@ export const DashboardScreen: React.FC = () => {
             </Marker>
           </MapView>
 
-          <TouchableOpacity activeOpacity={0.85} style={styles.goButton}>
-            <View style={styles.goRing}>
-              <Text allowFontScaling={false} style={styles.goLabel}>
-                GO!
-              </Text>
+          <View pointerEvents="box-none" style={styles.mapOverlay}>
+            <View style={styles.header}>
+              <View style={styles.menuButton}>
+                <View style={styles.menuLine} />
+                <View style={styles.menuLineMedium} />
+                <View style={styles.menuLineSmall} />
+              </View>
+
+              <View style={styles.balancePill}>
+                <Text allowFontScaling={false} style={styles.balanceLabel}>
+                  0,00 DT
+                </Text>
+              </View>
             </View>
-          </TouchableOpacity>
+
+            <TouchableOpacity activeOpacity={0.85} style={styles.goButton}>
+              <View style={styles.goRing}>
+                <Text allowFontScaling={false} style={styles.goLabel}>
+                  GO!
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.footer}>
@@ -214,6 +216,13 @@ const styles = StyleSheet.create({
     marginVertical: verticalScale(8),
     position: 'relative',
   },
+  mapOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'space-between',
+    paddingHorizontal: moderateScale(24),
+    paddingTop: verticalScale(16),
+    paddingBottom: verticalScale(24),
+  },
   mapMarker: {
     width: moderateScale(76),
     height: moderateScale(76),
@@ -230,8 +239,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   goButton: {
-    position: 'absolute',
-    bottom: verticalScale(32),
     alignSelf: 'center',
     width: moderateScale(156),
     height: moderateScale(156),
@@ -244,7 +251,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: moderateScale(24),
     elevation: moderateScale(10),
-    zIndex: 3,
   },
   goRing: {
     width: moderateScale(120),
