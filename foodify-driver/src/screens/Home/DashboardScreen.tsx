@@ -25,7 +25,6 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.mapOuter}>
           <MapView
             style={StyleSheet.absoluteFillObject}
-            provider={PROVIDER_GOOGLE}
             initialRegion={mapRegion}
             customMapStyle={customMapStyle}
           >
@@ -83,13 +82,6 @@ export const DashboardScreen: React.FC = () => {
             />
           </View>
         </View>
-
-        <Button
-          label="Sign out"
-          onPress={logout}
-          style={styles.signOutButton}
-          labelStyle={styles.signOutLabel}
-        />
       </View>
     </SafeAreaView>
   );
@@ -143,23 +135,11 @@ const customMapStyle = [
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#17213A',
+    backgroundColor: '#ffffff',
   },
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    marginHorizontal: moderateScale(16),
-    marginBottom: verticalScale(16),
-    borderRadius: moderateScale(28),
-    paddingHorizontal: moderateScale(24),
-    paddingTop: verticalScale(16),
-    paddingBottom: verticalScale(24),
-    gap: verticalScale(24),
-    shadowColor: 'rgba(0,0,0,0.25)',
-    shadowOffset: { width: 0, height: verticalScale(12) },
-    shadowOpacity: 1,
-    shadowRadius: moderateScale(24),
-    elevation: moderateScale(12),
+
   },
   header: {
     flexDirection: 'row',
@@ -269,7 +249,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     backgroundColor: '#ffffff',
-    borderRadius: moderateScale(20),
     paddingHorizontal: moderateScale(20),
     paddingVertical: verticalScale(18),
     flexDirection: 'row',
@@ -295,12 +274,5 @@ const styles = StyleSheet.create({
     marginRight: moderateScale(8),
     fontSize: moderateScale(14),
     color: '#4B5563',
-  },
-  signOutButton: {
-    marginTop: verticalScale(8),
-    backgroundColor: '#17213A',
-  },
-  signOutLabel: {
-    color: '#ffffff',
-  },
+  }
 });
