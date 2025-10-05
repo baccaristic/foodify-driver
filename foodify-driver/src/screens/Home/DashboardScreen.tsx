@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -8,7 +8,8 @@ import {
   View,
 } from 'react-native';
 import { moderateScale, verticalScale } from 'react-native-size-matters';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Region } from 'react-native-maps';
+import * as Location from 'expo-location';
 
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -20,10 +21,55 @@ const DEFAULT_REGION = {
 };
 
 export const DashboardScreen: React.FC = () => {
-  const { phoneNumber, toggleOnlineStatus, isOnline, logout } = useAuth();
+  const { phoneNumber, toggleOnlineStatus, isOnline } = useAuth();
 
   const formattedName = (phoneNumber ? phoneNumber : 'RIDER').toUpperCase();
-  const mapRegion = useMemo(() => DEFAULT_REGION, []);
+  const [userRegion, setUserRegion] = useState<Region | null>(null);
+  const mapRef = useRef<MapView | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+
+        if (status !== 'granted') {
+          console.warn('Permission to access location was denied');
+          return;
+        }
+
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+
+        if (isMounted) {
+          const region: Region = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          };
+          setUserRegion(region);
+          mapRef.current?.animateToRegion(region, 500);
+        }
+      } catch (error) {
+        console.warn('Unable to fetch current location', error);
+      }
+    };
+
+    fetchLocation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleRecenter = useCallback(() => {
+    if (userRegion && mapRef.current) {
+      mapRef.current.animateToRegion(userRegion, 500);
+    }
+  }, [userRegion]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -31,17 +77,20 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.mapOuter}>
           <MapView
             style={StyleSheet.absoluteFillObject}
-            initialRegion={mapRegion}
+            initialRegion={userRegion ?? DEFAULT_REGION}
             customMapStyle={customMapStyle}
+            ref={mapRef}
           >
-            <Marker coordinate={mapRegion}>
-              <View style={styles.mapMarker}>
-                <View style={styles.markerHead}>
-                  <View style={styles.markerCore} />
+            {userRegion && (
+              <Marker coordinate={userRegion}>
+                <View style={styles.mapMarker}>
+                  <View style={styles.markerHead}>
+                    <View style={styles.markerCore} />
+                  </View>
+                  <View style={styles.markerTail} />
                 </View>
-                <View style={styles.markerTail} />
-              </View>
-            </Marker>
+              </Marker>
+            )}
           </MapView>
 
           <View pointerEvents="box-none" style={styles.mapOverlay}>
@@ -58,7 +107,12 @@ export const DashboardScreen: React.FC = () => {
                 </Text>
               </View>
 
-              <TouchableOpacity activeOpacity={0.85} style={styles.locationButton}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.locationButton}
+                onPress={handleRecenter}
+                disabled={!userRegion}
+              >
                 <View style={styles.locationCircle}>
                   <View style={styles.locationDot} />
                 </View>
