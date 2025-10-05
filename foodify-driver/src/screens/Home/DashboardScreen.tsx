@@ -1,13 +1,22 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { SafeAreaView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
+
+const TUNIS_CENTER = {
+  latitude: 36.8065,
+  longitude: 10.1815,
+  latitudeDelta: 0.04,
+  longitudeDelta: 0.04,
+};
 
 export const DashboardScreen: React.FC = () => {
   const { phoneNumber, toggleOnlineStatus, isOnline, logout } = useAuth();
 
   const formattedName = phoneNumber ? phoneNumber : 'RIDER';
+  const mapRegion = useMemo(() => TUNIS_CENTER, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -24,28 +33,22 @@ export const DashboardScreen: React.FC = () => {
           </View>
         </View>
 
-        <View style={styles.mapContainer}>
-          {Array.from({ length: 5 }).map((_, index) => (
-            <View
-              // eslint-disable-next-line react/no-array-index-key
-              key={`v-${index}`}
-              style={[styles.verticalLine, { left: `${20 * index}%` }]}
-            />
-          ))}
-          {Array.from({ length: 5 }).map((_, index) => (
-            <View
-              // eslint-disable-next-line react/no-array-index-key
-              key={`h-${index}`}
-              style={[styles.horizontalLine, { top: `${20 * index}%` }]}
-            />
-          ))}
-
-          <View style={styles.mapMarker}>
-            <View style={styles.markerCore} />
-          </View>
+        <View style={styles.mapOuter}>
+          <MapView
+            style={StyleSheet.absoluteFillObject}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={mapRegion}
+            customMapStyle={customMapStyle}
+          >
+            <Marker coordinate={mapRegion}>
+              <View style={styles.mapMarker}>
+                <View style={styles.markerCore} />
+              </View>
+            </Marker>
+          </MapView>
 
           <TouchableOpacity activeOpacity={0.9} style={styles.goButton}>
-            <Text style={styles.goLabel}>GO!</Text>
+            <Text style={styles.goLabel}>GO</Text>
           </TouchableOpacity>
         </View>
 
@@ -57,32 +60,91 @@ export const DashboardScreen: React.FC = () => {
 
           <View style={styles.statusWrapper}>
             <Text style={[styles.footerSubtitle, { marginRight: 8 }]}>{isOnline ? 'Online' : 'Offline'}</Text>
-            <Switch value={isOnline} onValueChange={toggleOnlineStatus} trackColor={{ false: '#9ca3af', true: '#22c55e' }} />
+            <Switch
+              value={isOnline}
+              onValueChange={toggleOnlineStatus}
+              trackColor={{ false: '#D9D9D9', true: '#CA251B' }}
+              thumbColor={isOnline ? '#ffffff' : undefined}
+            />
           </View>
         </View>
 
         <Button
           label="Sign out"
           onPress={logout}
-          style={{ marginTop: 24, backgroundColor: '#e5e7eb' }}
-          labelStyle={{ color: '#111827' }}
+          style={styles.signOutButton}
+          labelStyle={styles.signOutLabel}
         />
       </View>
     </SafeAreaView>
   );
 };
 
+const customMapStyle = [
+  {
+    elementType: 'geometry',
+    stylers: [{ color: '#f5f5f5' }],
+  },
+  {
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#17213A' }],
+  },
+  {
+    elementType: 'labels.text.stroke',
+    stylers: [{ color: '#ffffff' }],
+  },
+  {
+    featureType: 'poi',
+    elementType: 'geometry',
+    stylers: [{ color: '#D9D9D9' }],
+  },
+  {
+    featureType: 'poi.park',
+    elementType: 'geometry',
+    stylers: [{ color: '#E8EBF2' }],
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry',
+    stylers: [{ color: '#ffffff' }],
+  },
+  {
+    featureType: 'road.arterial',
+    elementType: 'geometry',
+    stylers: [{ color: '#fdfcf8' }],
+  },
+  {
+    featureType: 'road.highway',
+    elementType: 'geometry',
+    stylers: [{ color: '#D9D9D9' }],
+  },
+  {
+    featureType: 'water',
+    elementType: 'geometry.fill',
+    stylers: [{ color: '#CAD7F5' }],
+  },
+];
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#17213A',
   },
   container: {
     flex: 1,
+    backgroundColor: '#ffffff',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 28,
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 24,
     gap: 24,
+    shadowColor: 'rgba(0,0,0,0.25)',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    elevation: 12,
   },
   header: {
     flexDirection: 'row',
@@ -95,10 +157,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: '#ffffff',
     elevation: 4,
-    shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
+    shadowColor: 'rgba(0,0,0,0.25)',
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 4,
@@ -112,7 +174,7 @@ const styles = StyleSheet.create({
   balancePill: {
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#dc2626',
+    backgroundColor: '#CA251B',
     borderRadius: 999,
   },
   balanceLabel: {
@@ -120,35 +182,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  mapContainer: {
+  mapOuter: {
     flex: 1,
     borderRadius: 24,
-    backgroundColor: '#f3f4f6',
     overflow: 'hidden',
     marginVertical: 8,
     position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  verticalLine: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: '#e5e7eb',
-  },
-  horizontalLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: '#e5e7eb',
   },
   mapMarker: {
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: '#dc2626',
+    backgroundColor: '#CA251B',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2,
@@ -162,19 +207,25 @@ const styles = StyleSheet.create({
   goButton: {
     position: 'absolute',
     bottom: 32,
-    paddingHorizontal: 32,
+    alignSelf: 'center',
+    paddingHorizontal: 40,
     paddingVertical: 18,
-    borderRadius: 32,
-    backgroundColor: '#ffffff',
-    borderWidth: 2,
-    borderColor: '#dc2626',
+    borderRadius: 999,
+    backgroundColor: '#CA251B',
+    borderWidth: 4,
+    borderColor: '#ffffff',
+    shadowColor: 'rgba(0,0,0,0.25)',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    elevation: 10,
     zIndex: 3,
   },
   goLabel: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '800',
-    color: '#dc2626',
-    letterSpacing: 1.2,
+    color: '#ffffff',
+    letterSpacing: 4,
   },
   footer: {
     backgroundColor: '#ffffff',
@@ -185,19 +236,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#D9D9D9',
   },
   footerGreeting: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#17213A',
   },
   footerSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#4B5563',
   },
   statusWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  signOutButton: {
+    marginTop: 8,
+    backgroundColor: '#17213A',
+  },
+  signOutLabel: {
+    color: '#ffffff',
   },
 });

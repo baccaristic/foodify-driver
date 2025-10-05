@@ -17,10 +17,15 @@ export const Button: React.FC<ButtonProps> = ({ label, onPress, disabled, style,
       disabled={disabled}
       style={[
         {
-          backgroundColor: disabled ? '#9ca3af' : '#11203c',
+          backgroundColor: disabled ? '#D9D9D9' : '#17213A',
           paddingVertical: 18,
           borderRadius: 16,
           alignItems: 'center',
+          shadowColor: disabled ? 'transparent' : 'rgba(0,0,0,0.25)',
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: disabled ? 0 : 1,
+          shadowRadius: disabled ? 0 : 20,
+          elevation: disabled ? 0 : 8,
         },
         style,
       ]}

@@ -54,3 +54,38 @@ declare module 'zustand/middleware' {
   export function persist<T>(creator: StateCreator<T>, options: Record<string, unknown>): StateCreator<T>;
   export function createJSONStorage<T>(getStorage: () => StateStorage): any;
 }
+
+declare module 'react-native-maps' {
+  import type { ComponentType } from 'react';
+  import type { ViewProps } from 'react-native';
+
+  export type Region = {
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  };
+
+  export type MapViewProps = ViewProps & {
+    provider?: 'google' | 'default';
+    initialRegion?: Region;
+    customMapStyle?: Array<Record<string, unknown>>;
+  };
+
+  export type MarkerProps = ViewProps & {
+    coordinate: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+
+  export const PROVIDER_GOOGLE: 'google';
+
+  const MapView: ComponentType<MapViewProps> & {
+    Marker: ComponentType<MarkerProps>;
+  };
+
+  export const Marker: ComponentType<MarkerProps>;
+
+  export default MapView;
+}
