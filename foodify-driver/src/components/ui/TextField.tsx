@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleProp, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import { moderateScale, verticalScale } from 'react-native-size-matters';
 
 type TextFieldProps = TextInputProps & {
   label?: string;
@@ -11,52 +12,54 @@ export const TextField: React.FC<TextFieldProps> = ({ label, containerStyle, err
   return (
     <View style={containerStyle}>
       {label ? (
-        <Text
-          style={{
-            fontSize: 13,
-            color: '#6b7280',
-            marginBottom: 6,
-            letterSpacing: 0.2,
-          }}
-        >
+        <Text allowFontScaling={false} style={styles.label}>
           {label}
         </Text>
       ) : null}
 
-      <View
-        style={{
-          backgroundColor: '#f3f4f6',
-          borderRadius: 16,
-          paddingHorizontal: 20,
-          paddingVertical: 16,
-          borderWidth: 1,
-          borderColor: error ? '#ef4444' : 'transparent',
-        }}
-      >
+      <View style={[styles.inputWrapper, error ? styles.inputWrapperError : null]}>
         <TextInput
+          allowFontScaling={false}
           placeholderTextColor="#9ca3af"
-          style={[
-            {
-              fontSize: 16,
-              color: '#111827',
-            },
-            style,
-          ]}
+          style={[styles.input, style]}
           {...props}
         />
       </View>
 
       {error ? (
-        <Text
-          style={{
-            color: '#ef4444',
-            marginTop: 6,
-            fontSize: 12,
-          }}
-        >
+        <Text allowFontScaling={false} style={styles.error}>
           {error}
         </Text>
       ) : null}
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  label: {
+    fontSize: moderateScale(13),
+    color: '#6b7280',
+    marginBottom: verticalScale(6),
+    letterSpacing: moderateScale(0.2),
+  },
+  inputWrapper: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: moderateScale(16),
+    paddingHorizontal: moderateScale(20),
+    paddingVertical: verticalScale(16),
+    borderWidth: moderateScale(1),
+    borderColor: 'transparent',
+  },
+  inputWrapperError: {
+    borderColor: '#ef4444',
+  },
+  input: {
+    fontSize: moderateScale(16),
+    color: '#111827',
+  },
+  error: {
+    color: '#ef4444',
+    marginTop: verticalScale(6),
+    fontSize: moderateScale(12),
+  },
+});

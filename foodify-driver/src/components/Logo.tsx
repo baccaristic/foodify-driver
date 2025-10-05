@@ -1,30 +1,35 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { moderateScale, verticalScale } from 'react-native-size-matters';
 
 export const Logo: React.FC = () => {
   return (
-    <View style={{ alignItems: 'center' }}>
-      <Text
-        style={{
-          color: '#9ca3af',
-          fontSize: 14,
-          letterSpacing: 1,
-          textTransform: 'uppercase',
-        }}
-      >
+    <View style={styles.container}>
+      <Text allowFontScaling={false} style={styles.tagline}>
         another logo for the driver
       </Text>
-      <Text
-        style={{
-          fontSize: 40,
-          fontWeight: '800',
-          color: '#ef4444',
-          marginTop: 4,
-          letterSpacing: 1.2,
-        }}
-      >
+      <Text allowFontScaling={false} style={styles.wordmark}>
         Foodify
       </Text>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+  },
+  tagline: {
+    color: '#9ca3af',
+    fontSize: moderateScale(14),
+    letterSpacing: moderateScale(1),
+    textTransform: 'uppercase',
+  },
+  wordmark: {
+    fontSize: moderateScale(40),
+    fontWeight: '800',
+    color: '#ef4444',
+    marginTop: verticalScale(4),
+    letterSpacing: moderateScale(1.2),
+  },
+});

@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { moderateScale, verticalScale } from 'react-native-size-matters';
 
 import { Logo } from '../../components/Logo';
 import { Button } from '../../components/ui/Button';
@@ -40,8 +41,12 @@ export const LoginScreen: React.FC = () => {
             </View>
 
             <View style={styles.headlineWrapper}>
-              <Text style={styles.welcome}>WELCOME BACK, RIDER</Text>
-              <Text style={styles.subtext}>Let&apos;s get on the road</Text>
+              <Text allowFontScaling={false} style={styles.welcome}>
+                WELCOME BACK, RIDER
+              </Text>
+              <Text allowFontScaling={false} style={styles.subtext}>
+                Let&apos;s get on the road
+              </Text>
             </View>
 
             <TextField
@@ -57,10 +62,10 @@ export const LoginScreen: React.FC = () => {
           </View>
         </KeyboardAvoidingView>
         <View style={styles.decorativeWrapper} pointerEvents="none">
-          <View style={[styles.decorativeIcon, { top: 60, left: 24 }]} />
-          <View style={[styles.decorativeIcon, { top: 120, right: 40, width: 32, height: 32 }]} />
-          <View style={[styles.decorativeIcon, { bottom: 100, left: 60, width: 36, height: 36 }]} />
-          <View style={[styles.decorativeIcon, { bottom: 40, right: 24, width: 28, height: 28 }]} />
+          <View style={[styles.decorativeIcon, styles.decorativeIconTopLeft]} />
+          <View style={[styles.decorativeIcon, styles.decorativeIconTopRight]} />
+          <View style={[styles.decorativeIcon, styles.decorativeIconBottomLeft]} />
+          <View style={[styles.decorativeIcon, styles.decorativeIconBottomRight]} />
         </View>
       </View>
     </SafeAreaView>
@@ -74,8 +79,8 @@ const styles = StyleSheet.create({
   },
   background: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 48,
+    paddingHorizontal: moderateScale(24),
+    paddingVertical: verticalScale(48),
     backgroundColor: '#f5f5f5',
     overflow: 'hidden',
   },
@@ -85,27 +90,27 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
-    gap: 36,
+    gap: verticalScale(36),
   },
   logoWrapper: {
     alignItems: 'center',
   },
   headlineWrapper: {
     alignItems: 'center',
-    gap: 8,
+    gap: verticalScale(8),
   },
   welcome: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     color: '#11203c',
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: moderateScale(1),
   },
   subtext: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#6b7280',
   },
   input: {
-    marginTop: 16,
+    marginTop: verticalScale(16),
   },
   decorativeWrapper: {
     position: 'absolute',
@@ -116,10 +121,35 @@ const styles = StyleSheet.create({
   },
   decorativeIcon: {
     position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(20),
     backgroundColor: '#fde68a',
     opacity: 0.35,
+  },
+  decorativeIconTopLeft: {
+    top: verticalScale(60),
+    left: moderateScale(24),
+  },
+  decorativeIconTopRight: {
+    top: verticalScale(120),
+    right: moderateScale(40),
+    width: moderateScale(32),
+    height: moderateScale(32),
+    borderRadius: moderateScale(16),
+  },
+  decorativeIconBottomLeft: {
+    bottom: verticalScale(100),
+    left: moderateScale(60),
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
+  },
+  decorativeIconBottomRight: {
+    bottom: verticalScale(40),
+    right: moderateScale(24),
+    width: moderateScale(28),
+    height: moderateScale(28),
+    borderRadius: moderateScale(14),
   },
 });

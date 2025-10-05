@@ -89,3 +89,9 @@ declare module 'react-native-maps' {
 
   export default MapView;
 }
+
+declare module 'react-native-size-matters' {
+  export function scale(size: number): number;
+  export function verticalScale(size: number): number;
+  export function moderateScale(size: number, factor?: number): number;
+}

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { SafeAreaView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { moderateScale, verticalScale } from 'react-native-size-matters';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { Button } from '../../components/ui/Button';
@@ -24,12 +25,14 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.header}>
           <View style={styles.menuButton}>
             <View style={styles.menuLine} />
-            <View style={[styles.menuLine, { width: 18 }]} />
-            <View style={[styles.menuLine, { width: 12 }]} />
+            <View style={styles.menuLineMedium} />
+            <View style={styles.menuLineSmall} />
           </View>
 
           <View style={styles.balancePill}>
-            <Text style={styles.balanceLabel}>0,00 DT</Text>
+            <Text allowFontScaling={false} style={styles.balanceLabel}>
+              0,00 DT
+            </Text>
           </View>
         </View>
 
@@ -49,19 +52,27 @@ export const DashboardScreen: React.FC = () => {
 
           <TouchableOpacity activeOpacity={0.85} style={styles.goButton}>
             <View style={styles.goRing}>
-              <Text style={styles.goLabel}>GO!</Text>
+              <Text allowFontScaling={false} style={styles.goLabel}>
+                GO!
+              </Text>
             </View>
           </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>
           <View>
-            <Text style={styles.footerGreeting}>HELLO, {formattedName}</Text>
-            <Text style={styles.footerSubtitle}>Ready to work?</Text>
+            <Text allowFontScaling={false} style={styles.footerGreeting}>
+              HELLO, {formattedName}
+            </Text>
+            <Text allowFontScaling={false} style={styles.footerSubtitle}>
+              Ready to work?
+            </Text>
           </View>
 
           <View style={styles.statusWrapper}>
-            <Text style={[styles.footerSubtitle, { marginRight: 8 }]}>{isOnline ? 'Online' : 'Offline'}</Text>
+            <Text allowFontScaling={false} style={styles.statusLabel}>
+              {isOnline ? 'Online' : 'Offline'}
+            </Text>
             <Switch
               value={isOnline}
               onValueChange={toggleOnlineStatus}
@@ -135,18 +146,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 24,
-    gap: 24,
+    marginHorizontal: moderateScale(16),
+    marginBottom: verticalScale(16),
+    borderRadius: moderateScale(28),
+    paddingHorizontal: moderateScale(24),
+    paddingTop: verticalScale(16),
+    paddingBottom: verticalScale(24),
+    gap: verticalScale(24),
     shadowColor: 'rgba(0,0,0,0.25)',
-    shadowOffset: { width: 0, height: 12 },
+    shadowOffset: { width: 0, height: verticalScale(12) },
     shadowOpacity: 1,
-    shadowRadius: 24,
-    elevation: 12,
+    shadowRadius: moderateScale(24),
+    elevation: moderateScale(12),
   },
   header: {
     flexDirection: 'row',
@@ -154,116 +165,133 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   menuButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: moderateScale(48),
+    height: moderateScale(48),
+    borderRadius: moderateScale(24),
     backgroundColor: '#ffffff',
-    elevation: 4,
+    elevation: moderateScale(4),
     shadowColor: 'rgba(0,0,0,0.25)',
     shadowOpacity: 1,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: verticalScale(8) },
+    shadowRadius: moderateScale(12),
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 4,
+    gap: verticalScale(4),
   },
   menuLine: {
-    width: 24,
-    height: 3,
-    borderRadius: 2,
+    width: moderateScale(24),
+    height: verticalScale(3),
+    borderRadius: moderateScale(2),
+    backgroundColor: '#1f2937',
+  },
+  menuLineMedium: {
+    width: moderateScale(18),
+    height: verticalScale(3),
+    borderRadius: moderateScale(2),
+    backgroundColor: '#1f2937',
+  },
+  menuLineSmall: {
+    width: moderateScale(12),
+    height: verticalScale(3),
+    borderRadius: moderateScale(2),
     backgroundColor: '#1f2937',
   },
   balancePill: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: moderateScale(20),
+    paddingVertical: verticalScale(12),
     backgroundColor: '#CA251B',
-    borderRadius: 999,
+    borderRadius: moderateScale(999),
   },
   balanceLabel: {
     color: '#ffffff',
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: moderateScale(0.5),
   },
   mapOuter: {
     flex: 1,
-    borderRadius: 24,
+    borderRadius: moderateScale(24),
     overflow: 'hidden',
-    marginVertical: 8,
+    marginVertical: verticalScale(8),
     position: 'relative',
   },
   mapMarker: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: moderateScale(76),
+    height: moderateScale(76),
+    borderRadius: moderateScale(38),
     backgroundColor: '#CA251B',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2,
   },
   markerCore: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: moderateScale(32),
+    height: moderateScale(32),
+    borderRadius: moderateScale(16),
     backgroundColor: '#ffffff',
   },
   goButton: {
     position: 'absolute',
-    bottom: 32,
+    bottom: verticalScale(32),
     alignSelf: 'center',
-    width: 156,
-    height: 156,
-    borderRadius: 78,
+    width: moderateScale(156),
+    height: moderateScale(156),
+    borderRadius: moderateScale(78),
     backgroundColor: '#CA251B',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: 'rgba(0,0,0,0.25)',
-    shadowOffset: { width: 0, height: 12 },
+    shadowOffset: { width: 0, height: verticalScale(12) },
     shadowOpacity: 1,
-    shadowRadius: 24,
-    elevation: 10,
+    shadowRadius: moderateScale(24),
+    elevation: moderateScale(10),
     zIndex: 3,
   },
   goRing: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 8,
+    width: moderateScale(120),
+    height: moderateScale(120),
+    borderRadius: moderateScale(60),
+    borderWidth: moderateScale(8),
     borderColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   goLabel: {
-    fontSize: 36,
+    fontSize: moderateScale(36),
     fontWeight: '800',
     color: '#ffffff',
-    letterSpacing: 2,
+    letterSpacing: moderateScale(2),
   },
   footer: {
     backgroundColor: '#ffffff',
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    borderRadius: moderateScale(20),
+    paddingHorizontal: moderateScale(20),
+    paddingVertical: verticalScale(18),
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: moderateScale(1),
     borderColor: '#D9D9D9',
   },
   footerGreeting: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '700',
     color: '#17213A',
   },
   footerSubtitle: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#4B5563',
   },
   statusWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  statusLabel: {
+    marginRight: moderateScale(8),
+    fontSize: moderateScale(14),
+    color: '#4B5563',
+  },
   signOutButton: {
-    marginTop: 8,
+    marginTop: verticalScale(8),
     backgroundColor: '#17213A',
   },
   signOutLabel: {
