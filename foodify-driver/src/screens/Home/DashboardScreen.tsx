@@ -47,8 +47,10 @@ export const DashboardScreen: React.FC = () => {
             </Marker>
           </MapView>
 
-          <TouchableOpacity activeOpacity={0.9} style={styles.goButton}>
-            <Text style={styles.goLabel}>GO</Text>
+          <TouchableOpacity activeOpacity={0.85} style={styles.goButton}>
+            <View style={styles.goRing}>
+              <Text style={styles.goLabel}>GO!</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -208,12 +210,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 32,
     alignSelf: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 18,
-    borderRadius: 999,
+    width: 156,
+    height: 156,
+    borderRadius: 78,
     backgroundColor: '#CA251B',
-    borderWidth: 4,
-    borderColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: 'rgba(0,0,0,0.25)',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 1,
@@ -221,11 +223,20 @@ const styles = StyleSheet.create({
     elevation: 10,
     zIndex: 3,
   },
+  goRing: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 8,
+    borderColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   goLabel: {
-    fontSize: 24,
+    fontSize: 36,
     fontWeight: '800',
     color: '#ffffff',
-    letterSpacing: 4,
+    letterSpacing: 2,
   },
   footer: {
     backgroundColor: '#ffffff',
