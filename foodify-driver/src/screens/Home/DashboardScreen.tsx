@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
-  SafeAreaView,
   StyleSheet,
   Switch,
   Text,
@@ -11,15 +10,17 @@ import {
 } from 'react-native';
 import { moderateScale, verticalScale } from 'react-native-size-matters';
 import MapView, { Marker, Region } from 'react-native-maps';
+import type { default as MapViewType } from 'react-native-maps/lib/MapView';
 import * as Location from 'expo-location';
 import { BarcodeScanningResult } from 'expo-camera';
-import { BlurView } from 'expo-blur';
+import { PlatformBlurView } from '../../components/PlatformBlurView';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
 import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
 import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const DEFAULT_REGION = {
   latitude: 47.5726,
@@ -33,13 +34,14 @@ export const DashboardScreen: React.FC = () => {
 
   const formattedName = (phoneNumber ? phoneNumber : 'RIDER').toUpperCase();
   const [userRegion, setUserRegion] = useState<Region | null>(null);
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<MapViewType | null>(null);
   const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
   const goPulse = useRef(new Animated.Value(0)).current;
+  const instes = useSafeAreaInsets();
 
   useEffect(() => {
     let isMounted = true;
@@ -198,7 +200,7 @@ export const DashboardScreen: React.FC = () => {
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.mapOuter}>
           <MapView
@@ -219,7 +221,7 @@ export const DashboardScreen: React.FC = () => {
             )}
           </MapView>
 
-          <View pointerEvents="box-none" style={styles.mapOverlay}>
+          <View pointerEvents="box-none" style={{...styles.mapOverlay, paddingTop: instes.top}}>
             <View style={styles.header}>
               <TouchableOpacity activeOpacity={0.8} style={styles.menuButton}>
                 <View style={styles.menuLine} />
@@ -299,7 +301,7 @@ export const DashboardScreen: React.FC = () => {
 
         {isIncomingOrderVisible && (
           <>
-            <BlurView intensity={45} tint="dark" style={styles.blurOverlay} />
+            <PlatformBlurView intensity={45} tint="dark" style={styles.blurOverlay} />
             <IncomingOrderOverlay
               countdownSeconds={incomingCountdown}
               onAccept={handleAcceptOrder}
@@ -311,7 +313,7 @@ export const DashboardScreen: React.FC = () => {
         )}
         {isOrderDetailsVisible && (
           <>
-            <BlurView intensity={45} tint="dark" style={styles.blurOverlay} />
+            <PlatformBlurView intensity={45} tint="dark" style={styles.blurOverlay} />
             <OngoingOrderDetailsOverlay onClose={handleCloseOrderDetails} />
           </>
         )}
@@ -323,7 +325,7 @@ export const DashboardScreen: React.FC = () => {
           />
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -477,7 +479,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'space-between',
     paddingHorizontal: moderateScale(24),
-    paddingTop: verticalScale(18),
     paddingBottom: verticalScale(28),
   },
   mapMarker: {

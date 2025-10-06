@@ -12,7 +12,7 @@ import {
   CameraView,
   useCameraPermissions,
 } from 'expo-camera';
-import { BlurView } from 'expo-blur';
+import { PlatformBlurView } from './PlatformBlurView';
 import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 import { X } from 'lucide-react-native';
 
@@ -78,7 +78,7 @@ export const ScanToPickupOverlay: React.FC<ScanToPickupOverlayProps> = ({
   return (
     <Modal animationType="fade" transparent visible>
       <View style={StyleSheet.absoluteFill}>
-        <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
+      <PlatformBlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
 
         <View style={styles.container}>
           <View style={styles.cameraCard}>
