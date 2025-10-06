@@ -10,12 +10,14 @@ import {
 import { moderateScale, verticalScale } from 'react-native-size-matters';
 import MapView, { Marker, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { BarcodeScanningResult } from 'expo-camera';
 import { BlurView } from 'expo-blur';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
 import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
+import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
 
 const DEFAULT_REGION = {
   latitude: 47.5726,
@@ -34,6 +36,7 @@ export const DashboardScreen: React.FC = () => {
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
+  const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -130,11 +133,20 @@ export const DashboardScreen: React.FC = () => {
   }, []);
 
   const handleScanToPickup = useCallback(() => {
-    console.log('Scan to Pickup pressed');
+    setScanOverlayVisible(true);
   }, []);
 
   const handleCloseOrderDetails = useCallback(() => {
     setOrderDetailsVisible(false);
+  }, []);
+
+  const handleCloseScanner = useCallback(() => {
+    setScanOverlayVisible(false);
+  }, []);
+
+  const handleQRCodeScanned = useCallback((result: BarcodeScanningResult) => {
+    console.log('QR code scanned:', result.data);
+    setScanOverlayVisible(false);
   }, []);
 
   return (
@@ -247,6 +259,13 @@ export const DashboardScreen: React.FC = () => {
             <BlurView intensity={45} tint="dark" style={styles.blurOverlay} />
             <OngoingOrderDetailsOverlay onClose={handleCloseOrderDetails} />
           </>
+        )}
+        {isScanOverlayVisible && (
+          <ScanToPickupOverlay
+            onClose={handleCloseScanner}
+            onScanned={handleQRCodeScanned}
+            visible={isScanOverlayVisible}
+          />
         )}
       </View>
     </SafeAreaView>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScanLine } from 'lucide-react-native';
 import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 
 export interface OngoingOrderBannerProps {
@@ -65,9 +66,15 @@ export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
             onPress={onScanToPickup}
             style={[styles.secondaryAction, styles.column, styles.scanAction]}
           >
-            <Text allowFontScaling={false} style={styles.secondaryActionLabel}>
-              Scan to Pickup
-            </Text>
+            <View style={styles.scanActionContent}>
+              <ScanLine color="#ffffff" size={moderateScale(16)} />
+              <Text
+                allowFontScaling={false}
+                style={[styles.secondaryActionLabel, styles.scanActionLabel]}
+              >
+                Scan to Pickup
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -165,5 +172,14 @@ const styles = StyleSheet.create({
   scanAction: {
     marginLeft: scale(12),
     backgroundColor: '#192038',
+  },
+  scanActionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: scale(8),
+  },
+  scanActionLabel: {
+    textAlign: 'left',
   },
 });
