@@ -10,8 +10,10 @@ import {
 import { moderateScale, verticalScale } from 'react-native-size-matters';
 import MapView, { Marker, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { BlurView } from 'expo-blur';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 
 const DEFAULT_REGION = {
   latitude: 47.5726,
@@ -26,6 +28,8 @@ export const DashboardScreen: React.FC = () => {
   const formattedName = (phoneNumber ? phoneNumber : 'RIDER').toUpperCase();
   const [userRegion, setUserRegion] = useState<Region | null>(null);
   const mapRef = useRef<MapView | null>(null);
+  const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
+  const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
 
   useEffect(() => {
     let isMounted = true;
@@ -70,6 +74,41 @@ export const DashboardScreen: React.FC = () => {
       mapRef.current.animateToRegion(userRegion, 500);
     }
   }, [userRegion]);
+
+  useEffect(() => {
+    if (!isIncomingOrderVisible) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setIncomingCountdown((prev) => {
+        if (prev <= 0) {
+          clearInterval(intervalId);
+          return 0;
+        }
+
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [isIncomingOrderVisible]);
+
+  useEffect(() => {
+    if (incomingCountdown <= 0) {
+      setIncomingOrderVisible(false);
+    }
+  }, [incomingCountdown]);
+
+  const handleAcceptOrder = useCallback(() => {
+    setIncomingOrderVisible(false);
+  }, []);
+
+  const handleDeclineOrder = useCallback(() => {
+    setIncomingOrderVisible(false);
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -152,6 +191,19 @@ export const DashboardScreen: React.FC = () => {
             />
           </View>
         </View>
+
+        {isIncomingOrderVisible && (
+          <>
+            <BlurView intensity={45} tint="dark" style={styles.blurOverlay} />
+            <IncomingOrderOverlay
+              countdownSeconds={incomingCountdown}
+              onAccept={handleAcceptOrder}
+              onDecline={handleDeclineOrder}
+              orderLabel="New Order"
+              subtitle="You have a new pickup request"
+            />
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -204,6 +256,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    position: 'relative',
   },
   header: {
     flexDirection: 'row',
@@ -399,5 +452,8 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(14),
     color: '#9CA3AF',
     textTransform: 'capitalize',
+  },
+  blurOverlay: {
+    ...StyleSheet.absoluteFillObject,
   },
 });

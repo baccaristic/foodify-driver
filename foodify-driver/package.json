@@ -12,13 +12,16 @@
   "dependencies": {
     "axios": "^1.7.7",
     "expo": "~54.0.12",
+    "expo-blur": "~15.0.7",
     "expo-location": "~19.0.7",
     "expo-secure-store": "~15.0.7",
     "expo-status-bar": "~3.0.8",
+    "lucide-react-native": "latest",
     "react": "19.1.0",
     "react-native": "0.81.4",
     "react-native-maps": "^1.15.8",
     "react-native-size-matters": "latest",
+    "react-native-svg": "15.12.1",
     "zustand": "^4.5.2"
   },
   "devDependencies": {
