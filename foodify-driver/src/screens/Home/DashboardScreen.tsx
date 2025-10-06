@@ -15,6 +15,7 @@ import { BlurView } from 'expo-blur';
 import { useAuth } from '../../contexts/AuthContext';
 import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
+import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
 
 const DEFAULT_REGION = {
   latitude: 47.5726,
@@ -32,6 +33,7 @@ export const DashboardScreen: React.FC = () => {
   const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
+  const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -120,6 +122,7 @@ export const DashboardScreen: React.FC = () => {
 
   const handleSeeOrderDetails = useCallback(() => {
     console.log('See order details pressed');
+    setOrderDetailsVisible(true);
   }, []);
 
   const handleLookForDirection = useCallback(() => {
@@ -128,6 +131,10 @@ export const DashboardScreen: React.FC = () => {
 
   const handleScanToPickup = useCallback(() => {
     console.log('Scan to Pickup pressed');
+  }, []);
+
+  const handleCloseOrderDetails = useCallback(() => {
+    setOrderDetailsVisible(false);
   }, []);
 
   return (
@@ -233,6 +240,12 @@ export const DashboardScreen: React.FC = () => {
               orderLabel="New Order"
               subtitle="You have a new pickup request"
             />
+          </>
+        )}
+        {isOrderDetailsVisible && (
+          <>
+            <BlurView intensity={45} tint="dark" style={styles.blurOverlay} />
+            <OngoingOrderDetailsOverlay onClose={handleCloseOrderDetails} />
           </>
         )}
       </View>
