@@ -4,7 +4,6 @@ import {
   Easing,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
@@ -204,7 +203,7 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <View style={styles.container}>
         <View pointerEvents="none" style={styles.ambientLayer}>
           <Animated.View style={[styles.glow, styles.glowTop, topGlowStyle]} />
@@ -266,7 +265,7 @@ export const LoginScreen: React.FC = () => {
           </View>
         </KeyboardAvoidingView>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 

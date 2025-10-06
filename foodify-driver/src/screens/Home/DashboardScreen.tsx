@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
-  SafeAreaView,
   StyleSheet,
   Switch,
   Text,
@@ -199,7 +198,7 @@ export const DashboardScreen: React.FC = () => {
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.mapOuter}>
           <MapView
@@ -324,7 +323,7 @@ export const DashboardScreen: React.FC = () => {
           />
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
