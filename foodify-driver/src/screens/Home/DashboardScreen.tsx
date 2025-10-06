@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import { moderateScale, verticalScale } from 'react-native-size-matters';
 import MapView, { Marker, Region } from 'react-native-maps';
+import type { default as MapViewType } from 'react-native-maps/lib/MapView';
 import * as Location from 'expo-location';
 import { BarcodeScanningResult } from 'expo-camera';
-import { BlurView } from 'expo-blur';
+import { PlatformBlurView } from '../../components/PlatformBlurView';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
@@ -33,7 +34,7 @@ export const DashboardScreen: React.FC = () => {
 
   const formattedName = (phoneNumber ? phoneNumber : 'RIDER').toUpperCase();
   const [userRegion, setUserRegion] = useState<Region | null>(null);
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<MapViewType | null>(null);
   const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
@@ -299,7 +300,7 @@ export const DashboardScreen: React.FC = () => {
 
         {isIncomingOrderVisible && (
           <>
-            <BlurView intensity={45} tint="dark" style={styles.blurOverlay} />
+            <PlatformBlurView intensity={45} tint="dark" style={styles.blurOverlay} />
             <IncomingOrderOverlay
               countdownSeconds={incomingCountdown}
               onAccept={handleAcceptOrder}
@@ -311,7 +312,7 @@ export const DashboardScreen: React.FC = () => {
         )}
         {isOrderDetailsVisible && (
           <>
-            <BlurView intensity={45} tint="dark" style={styles.blurOverlay} />
+            <PlatformBlurView intensity={45} tint="dark" style={styles.blurOverlay} />
             <OngoingOrderDetailsOverlay onClose={handleCloseOrderDetails} />
           </>
         )}

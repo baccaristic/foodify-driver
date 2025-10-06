@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { PlatformBlurView } from '../../components/PlatformBlurView';
 import { moderateScale, verticalScale } from 'react-native-size-matters';
 
 import { Logo } from '../../components/Logo';
@@ -223,7 +223,7 @@ export const LoginScreen: React.FC = () => {
               </Text>
             </Animated.View>
 
-            <BlurView intensity={65} tint="light" style={styles.glassCard}>
+            <PlatformBlurView intensity={65} tint="light" style={styles.glassCard}>
               <Animated.View
                 style={[
                   styles.card,
@@ -262,7 +262,7 @@ export const LoginScreen: React.FC = () => {
 
                 <Button label="Continue" onPress={handleContinue} disabled={!isValidNumber} />
               </Animated.View>
-            </BlurView>
+            </PlatformBlurView>
           </View>
         </KeyboardAvoidingView>
       </View>
