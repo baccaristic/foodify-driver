@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Animated,
+  Easing,
   SafeAreaView,
   StyleSheet,
   Switch,
@@ -37,6 +39,7 @@ export const DashboardScreen: React.FC = () => {
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
+  const goPulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     let isMounted = true;
@@ -149,6 +152,51 @@ export const DashboardScreen: React.FC = () => {
     setScanOverlayVisible(false);
   }, []);
 
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(goPulse, {
+          toValue: 1,
+          duration: 2600,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(goPulse, {
+          toValue: 0,
+          duration: 2600,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    loop.start();
+
+    return () => {
+      loop.stop();
+    };
+  }, [goPulse]);
+
+  const goScale = goPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.08],
+  });
+
+  const goGlowScale = goPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.24],
+  });
+
+  const goGlowOpacity = goPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.45, 0.18],
+  });
+
+  const goInnerOpacity = goPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.2, 0.45],
+  });
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -207,12 +255,19 @@ export const DashboardScreen: React.FC = () => {
                   onScanToPickup={handleScanToPickup}
                 />
               ) : (
-                <TouchableOpacity activeOpacity={0.85} style={styles.goButton}>
-                  <View style={styles.goRing}>
-                    <Text allowFontScaling={false} style={styles.goLabel}>
-                      GO!
-                    </Text>
-                  </View>
+                <TouchableOpacity activeOpacity={0.85} style={styles.goWrapper}>
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[styles.goGlow, { opacity: goGlowOpacity, transform: [{ scale: goGlowScale }] }]}
+                  />
+                  <Animated.View style={[styles.goButton, { transform: [{ scale: goScale }] }]}>
+                    <Animated.View style={[styles.goInnerPulse, { opacity: goInnerOpacity }]} />
+                    <View style={styles.goRing}>
+                      <Text allowFontScaling={false} style={styles.goLabel}>
+                        GO!
+                      </Text>
+                    </View>
+                  </Animated.View>
                 </TouchableOpacity>
               )}
             </View>
@@ -453,33 +508,54 @@ const styles = StyleSheet.create({
     borderRightColor: 'transparent',
     borderTopColor: '#CA251B',
   },
-  goButton: {
+  goWrapper: {
     alignSelf: 'center',
+    width: moderateScale(160),
+    height: moderateScale(160),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  goGlow: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    borderRadius: moderateScale(80),
+    backgroundColor: '#CA251B',
+  },
+  goButton: {
     width: moderateScale(140),
     height: moderateScale(140),
     borderRadius: moderateScale(70),
     backgroundColor: '#CA251B',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(0,0,0,0.2)',
-    shadowOffset: { width: 0, height: verticalScale(14) },
+    shadowColor: 'rgba(202, 37, 27, 0.45)',
+    shadowOffset: { width: 0, height: verticalScale(16) },
     shadowOpacity: 1,
-    shadowRadius: moderateScale(30),
-    elevation: moderateScale(12),
+    shadowRadius: moderateScale(34),
+    elevation: moderateScale(14),
+    overflow: 'hidden',
+  },
+  goInnerPulse: {
+    position: 'absolute',
+    width: '78%',
+    height: '78%',
+    borderRadius: moderateScale(999),
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
   goRing: {
     width: moderateScale(108),
     height: moderateScale(108),
     borderRadius: moderateScale(54),
     borderWidth: moderateScale(10),
-    borderColor: '#ffffff',
+    borderColor: 'rgba(255, 255, 255, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   goLabel: {
     fontSize: moderateScale(30),
     fontWeight: '800',
-    color: '#ffffff',
+    color: '#F9FAFB',
     letterSpacing: moderateScale(1.2),
   },
   overlayBottomContainer: {
