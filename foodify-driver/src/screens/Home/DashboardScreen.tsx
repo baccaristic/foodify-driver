@@ -10,10 +10,14 @@ import {
 import { moderateScale, verticalScale } from 'react-native-size-matters';
 import MapView, { Marker, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { BarcodeScanningResult } from 'expo-camera';
 import { BlurView } from 'expo-blur';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
+import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
+import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
+import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
 
 const DEFAULT_REGION = {
   latitude: 47.5726,
@@ -29,7 +33,10 @@ export const DashboardScreen: React.FC = () => {
   const [userRegion, setUserRegion] = useState<Region | null>(null);
   const mapRef = useRef<MapView | null>(null);
   const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
+  const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
+  const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
+  const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -104,10 +111,42 @@ export const DashboardScreen: React.FC = () => {
 
   const handleAcceptOrder = useCallback(() => {
     setIncomingOrderVisible(false);
+    setOngoingOrderVisible(true);
   }, []);
 
   const handleDeclineOrder = useCallback(() => {
     setIncomingOrderVisible(false);
+    setOngoingOrderVisible(false);
+  }, []);
+
+  const handleCallRestaurant = useCallback(() => {
+    console.log('Call Restaurant pressed');
+  }, []);
+
+  const handleSeeOrderDetails = useCallback(() => {
+    console.log('See order details pressed');
+    setOrderDetailsVisible(true);
+  }, []);
+
+  const handleLookForDirection = useCallback(() => {
+    console.log('Look for direction pressed');
+  }, []);
+
+  const handleScanToPickup = useCallback(() => {
+    setScanOverlayVisible(true);
+  }, []);
+
+  const handleCloseOrderDetails = useCallback(() => {
+    setOrderDetailsVisible(false);
+  }, []);
+
+  const handleCloseScanner = useCallback(() => {
+    setScanOverlayVisible(false);
+  }, []);
+
+  const handleQRCodeScanned = useCallback((result: BarcodeScanningResult) => {
+    console.log('QR code scanned:', result.data);
+    setScanOverlayVisible(false);
   }, []);
 
   return (
@@ -159,13 +198,24 @@ export const DashboardScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity activeOpacity={0.85} style={styles.goButton}>
-              <View style={styles.goRing}>
-                <Text allowFontScaling={false} style={styles.goLabel}>
-                  GO!
-                </Text>
-              </View>
-            </TouchableOpacity>
+            <View style={styles.overlayBottomContainer}>
+              {isOngoingOrderVisible ? (
+                <OngoingOrderBanner
+                  onCallRestaurant={handleCallRestaurant}
+                  onSeeOrderDetails={handleSeeOrderDetails}
+                  onLookForDirection={handleLookForDirection}
+                  onScanToPickup={handleScanToPickup}
+                />
+              ) : (
+                <TouchableOpacity activeOpacity={0.85} style={styles.goButton}>
+                  <View style={styles.goRing}>
+                    <Text allowFontScaling={false} style={styles.goLabel}>
+                      GO!
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
 
@@ -203,6 +253,19 @@ export const DashboardScreen: React.FC = () => {
               subtitle="You have a new pickup request"
             />
           </>
+        )}
+        {isOrderDetailsVisible && (
+          <>
+            <BlurView intensity={45} tint="dark" style={styles.blurOverlay} />
+            <OngoingOrderDetailsOverlay onClose={handleCloseOrderDetails} />
+          </>
+        )}
+        {isScanOverlayVisible && (
+          <ScanToPickupOverlay
+            onClose={handleCloseScanner}
+            onScanned={handleQRCodeScanned}
+            visible={isScanOverlayVisible}
+          />
         )}
       </View>
     </SafeAreaView>
@@ -418,6 +481,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#ffffff',
     letterSpacing: moderateScale(1.2),
+  },
+  overlayBottomContainer: {
+    alignItems: 'center',
+    width: '100%',
   },
   footer: {
     backgroundColor: '#ffffff',
