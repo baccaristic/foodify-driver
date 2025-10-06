@@ -18,9 +18,13 @@ declare module 'expo-secure-store' {
 declare module 'axios' {
   export type AxiosRequestConfig = Record<string, unknown>;
   export type AxiosResponse<T = any> = { data: T } & Record<string, unknown>;
-  export type AxiosError = Error & { response?: AxiosResponse };
+  export type AxiosError<T = any> = Error & {
+    code?: string;
+    response?: AxiosResponse<T>;
+  };
   export interface AxiosInstance {
     (config: AxiosRequestConfig): Promise<AxiosResponse>;
+    post<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
     create: (config?: AxiosRequestConfig) => AxiosInstance;
     interceptors: {
       request: { use: (fulfilled: (config: AxiosRequestConfig) => AxiosRequestConfig, rejected?: (error: any) => any) => void };
@@ -32,6 +36,7 @@ declare module 'axios' {
       };
     };
   }
+  export function isAxiosError<T = any>(payload: unknown): payload is AxiosError<T>;
   const axios: AxiosInstance;
   export default axios;
 }
@@ -70,6 +75,7 @@ declare module 'react-native-maps' {
     provider?: 'google' | 'default';
     initialRegion?: Region;
     customMapStyle?: Array<Record<string, unknown>>;
+    ref?: unknown;
   };
 
   export type MarkerProps = ViewProps & {
@@ -88,6 +94,20 @@ declare module 'react-native-maps' {
   export const Marker: ComponentType<MarkerProps>;
 
   export default MapView;
+}
+
+declare module 'react-native-safe-area-context' {
+  import type { ReactNode } from 'react';
+
+  export type EdgeInsets = {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  };
+
+  export const SafeAreaProvider: React.FC<{ children?: ReactNode }>;
+  export function useSafeAreaInsets(): EdgeInsets;
 }
 
 declare module 'react-native-size-matters' {

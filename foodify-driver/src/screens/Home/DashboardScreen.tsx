@@ -30,9 +30,9 @@ const DEFAULT_REGION = {
 };
 
 export const DashboardScreen: React.FC = () => {
-  const { phoneNumber, toggleOnlineStatus, isOnline } = useAuth();
+  const { user, toggleOnlineStatus, isOnline } = useAuth();
 
-  const formattedName = (phoneNumber ? phoneNumber : 'RIDER').toUpperCase();
+  const formattedName = (user?.name || user?.email || 'Driver').toUpperCase();
   const [userRegion, setUserRegion] = useState<Region | null>(null);
   const mapRef = useRef<MapViewType | null>(null);
   const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);

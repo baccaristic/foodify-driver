@@ -5,9 +5,9 @@ import { DashboardScreen } from '../screens/Home/DashboardScreen';
 import { LoginScreen } from '../screens/Auth/LoginScreen';
 
 export const AppNavigator: React.FC = () => {
-  const { token } = useAuth();
+  const { accessToken } = useAuth();
 
-  if (!token) {
+  if (!accessToken) {
     return <LoginScreen />;
   }
 
