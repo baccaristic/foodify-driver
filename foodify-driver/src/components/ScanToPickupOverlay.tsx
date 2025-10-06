@@ -263,3 +263,4 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
   },
+})
