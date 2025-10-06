@@ -20,6 +20,7 @@ import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
 import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
 import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const DEFAULT_REGION = {
   latitude: 47.5726,
@@ -40,6 +41,7 @@ export const DashboardScreen: React.FC = () => {
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
   const goPulse = useRef(new Animated.Value(0)).current;
+  const instes = useSafeAreaInsets();
 
   useEffect(() => {
     let isMounted = true;
@@ -219,7 +221,7 @@ export const DashboardScreen: React.FC = () => {
             )}
           </MapView>
 
-          <View pointerEvents="box-none" style={styles.mapOverlay}>
+          <View pointerEvents="box-none" style={{...styles.mapOverlay, paddingTop: instes.top}}>
             <View style={styles.header}>
               <TouchableOpacity activeOpacity={0.8} style={styles.menuButton}>
                 <View style={styles.menuLine} />
@@ -477,7 +479,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'space-between',
     paddingHorizontal: moderateScale(24),
-    paddingTop: verticalScale(18),
     paddingBottom: verticalScale(28),
   },
   mapMarker: {
