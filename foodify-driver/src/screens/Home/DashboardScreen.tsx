@@ -16,6 +16,7 @@ import { BarcodeScanningResult } from 'expo-camera';
 import { PlatformBlurView } from '../../components/PlatformBlurView';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { updateDriverLocation } from '../../services/driverService';
 import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
 import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
@@ -35,6 +36,10 @@ export const DashboardScreen: React.FC = () => {
   const formattedName = (user?.name || user?.email || 'Driver').toUpperCase();
   const [userRegion, setUserRegion] = useState<Region | null>(null);
   const mapRef = useRef<MapViewType | null>(null);
+  const locationWatcher = useRef<Location.LocationSubscription | null>(null);
+  const sendLocationUpdateRef = useRef<
+    ((coords: Location.LocationObjectCoords) => Promise<void>) | null
+  >(null);
   const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
@@ -43,10 +48,47 @@ export const DashboardScreen: React.FC = () => {
   const goPulse = useRef(new Animated.Value(0)).current;
   const instes = useSafeAreaInsets();
 
+  const applyRegionUpdate = useCallback((coords: Location.LocationObjectCoords) => {
+    const region: Region = {
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    };
+
+    setUserRegion(region);
+    mapRef.current?.animateToRegion(region, 500);
+  }, []);
+
+  const sendLocationUpdate = useCallback(
+    async (coords: Location.LocationObjectCoords) => {
+      const driverId = user?.id;
+
+      if (!driverId || !isOnline) {
+        return;
+      }
+
+      try {
+        await updateDriverLocation({
+          driverId,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        });
+      } catch (error) {
+        console.warn('[Dashboard] Failed to update driver location', error);
+      }
+    },
+    [isOnline, user?.id],
+  );
+
+  useEffect(() => {
+    sendLocationUpdateRef.current = sendLocationUpdate;
+  }, [sendLocationUpdate]);
+
   useEffect(() => {
     let isMounted = true;
 
-    const fetchLocation = async () => {
+    const startLocationTracking = async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
 
@@ -55,31 +97,45 @@ export const DashboardScreen: React.FC = () => {
           return;
         }
 
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+        const currentLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.BestForNavigation,
         });
 
-        if (isMounted) {
-          const region: Region = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          };
-          setUserRegion(region);
-          mapRef.current?.animateToRegion(region, 500);
+        if (!isMounted) {
+          return;
         }
+
+        applyRegionUpdate(currentLocation.coords);
+        await sendLocationUpdateRef.current?.(currentLocation.coords);
+
+        locationWatcher.current = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.BestForNavigation,
+            timeInterval: 5000,
+            distanceInterval: 15,
+          },
+          (location) => {
+            if (!isMounted) {
+              return;
+            }
+
+            applyRegionUpdate(location.coords);
+            void sendLocationUpdateRef.current?.(location.coords);
+          },
+        );
       } catch (error) {
-        console.warn('Unable to fetch current location', error);
+        console.warn('Unable to start location tracking', error);
       }
     };
 
-    fetchLocation();
+    startLocationTracking();
 
     return () => {
       isMounted = false;
+      locationWatcher.current?.remove();
+      locationWatcher.current = null;
     };
-  }, []);
+  }, [applyRegionUpdate]);
 
   const handleRecenter = useCallback(() => {
     if (userRegion && mapRef.current) {
