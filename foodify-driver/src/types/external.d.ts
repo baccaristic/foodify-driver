@@ -16,15 +16,21 @@ declare module 'expo-secure-store' {
 }
 
 declare module 'axios' {
-  export type AxiosRequestConfig = Record<string, unknown>;
-  export type AxiosResponse<T = any> = { data: T } & Record<string, unknown>;
+  export type AxiosRequestConfig = {
+    url?: string;
+    headers?: Record<string, string>;
+    _retry?: boolean;
+  } & Record<string, unknown>;
+  export type AxiosResponse<T = any> = { data: T; status?: number } & Record<string, unknown>;
   export type AxiosError<T = any> = Error & {
     code?: string;
     response?: AxiosResponse<T>;
+    config?: AxiosRequestConfig;
   };
   export interface AxiosInstance {
     (config: AxiosRequestConfig): Promise<AxiosResponse>;
     post<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
+    get<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
     create: (config?: AxiosRequestConfig) => AxiosInstance;
     interceptors: {
       request: { use: (fulfilled: (config: AxiosRequestConfig) => AxiosRequestConfig, rejected?: (error: any) => any) => void };
@@ -44,7 +50,12 @@ declare module 'axios' {
 declare module 'zustand' {
   export type SetState<T> = (updater: (state: T) => T | Partial<T>) => void;
   export type StateCreator<T> = (set: SetState<T>, get: () => T) => T;
-  export function create<T>(creator: StateCreator<T>): () => T;
+  export type StoreApi<T> = {
+    (): T;
+    getState: () => T;
+    setState: SetState<T>;
+  };
+  export function create<T>(creator: StateCreator<T>): StoreApi<T>;
 }
 
 declare module 'zustand/middleware' {

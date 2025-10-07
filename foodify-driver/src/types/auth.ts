@@ -15,3 +15,14 @@ export type LoginResponse = {
   accessToken: string;
   refreshToken: string;
 };
+
+export type AuthTokens = {
+  accessToken: string;
+  refreshToken?: string;
+};
+
+export type RefreshResponse = AuthTokens;
+
+export type SessionStatusResponse = {
+  status: 'active';
+};

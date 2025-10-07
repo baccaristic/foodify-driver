@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import type { DriverUser, LoginResponse } from '../types/auth';
+import type { AuthTokens, DriverUser, LoginResponse } from '../types/auth';
 
 type MemoryStore = Record<string, string>;
 
@@ -15,7 +15,10 @@ export type AuthState = {
   accessToken: string | null;
   refreshToken: string | null;
   isOnline: boolean;
+  hasHydrated: boolean;
   authenticate: (payload: LoginResponse) => void;
+  setTokens: (tokens: AuthTokens) => void;
+  setHydrated: (value: boolean) => void;
   logout: () => void;
   toggleOnlineStatus: () => void;
 };
@@ -104,12 +107,23 @@ export const useAuthStore = create<AuthState>(
       accessToken: null,
       refreshToken: null,
       isOnline: false,
+      hasHydrated: false,
       authenticate: ({ user, accessToken, refreshToken }: LoginResponse) =>
         set(() => ({
           user,
           accessToken,
           refreshToken,
           isOnline: user?.available ?? false,
+          hasHydrated: true,
+        })),
+      setTokens: ({ accessToken, refreshToken }: AuthTokens) =>
+        set((state) => ({
+          accessToken,
+          refreshToken: refreshToken ?? state.refreshToken,
+        })),
+      setHydrated: (value: boolean) =>
+        set(() => ({
+          hasHydrated: value,
         })),
       logout: () =>
         set(() => ({
@@ -117,6 +131,7 @@ export const useAuthStore = create<AuthState>(
           accessToken: null,
           refreshToken: null,
           isOnline: false,
+          hasHydrated: true,
         })),
       toggleOnlineStatus: () => set((state) => ({ isOnline: !state.isOnline })),
     }),
@@ -129,6 +144,13 @@ export const useAuthStore = create<AuthState>(
         refreshToken: state.refreshToken,
         isOnline: state.isOnline,
       }),
+      onRehydrateStorage: () => (state: AuthState | undefined, error: unknown) => {
+        if (error) {
+          console.warn('[authStore] Failed to rehydrate auth store', error);
+        }
+
+        state?.setHydrated(true);
+      },
     },
   ),
 );
