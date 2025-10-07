@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { moderateScale, verticalScale } from 'react-native-size-matters';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { AnimatedRegion, MarkerAnimated, Region } from 'react-native-maps';
 import type { default as MapViewType } from 'react-native-maps/lib/MapView';
 import * as Location from 'expo-location';
 import { BarcodeScanningResult } from 'expo-camera';
@@ -40,6 +40,14 @@ export const DashboardScreen: React.FC = () => {
   const sendLocationUpdateRef = useRef<
     ((coords: Location.LocationObjectCoords) => Promise<void>) | null
   >(null);
+  const driverCoordinate = useRef(
+    new AnimatedRegion({
+      latitude: DEFAULT_REGION.latitude,
+      longitude: DEFAULT_REGION.longitude,
+      latitudeDelta: DEFAULT_REGION.latitudeDelta,
+      longitudeDelta: DEFAULT_REGION.longitudeDelta,
+    }),
+  );
   const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
@@ -48,17 +56,43 @@ export const DashboardScreen: React.FC = () => {
   const goPulse = useRef(new Animated.Value(0)).current;
   const instes = useSafeAreaInsets();
 
-  const applyRegionUpdate = useCallback((coords: Location.LocationObjectCoords) => {
-    const region: Region = {
-      latitude: coords.latitude,
-      longitude: coords.longitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    };
+  const applyRegionUpdate = useCallback(
+    (coords: Location.LocationObjectCoords, animateMap: boolean) => {
+      const region: Region = {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
 
-    setUserRegion(region);
-    mapRef.current?.animateToRegion(region, 500);
-  }, []);
+      driverCoordinate.current
+        .timing({
+          latitude: region.latitude,
+          longitude: region.longitude,
+          duration: 750,
+          useNativeDriver: false,
+        })
+        .start();
+
+      setUserRegion(region);
+
+      if (animateMap && mapRef.current) {
+        mapRef.current.animateCamera(
+          {
+            center: {
+              latitude: region.latitude,
+              longitude: region.longitude,
+            },
+            pitch: 0,
+            heading: 0,
+            altitude: 1200,
+          },
+          { duration: 750 },
+        );
+      }
+    },
+    [],
+  );
 
   const sendLocationUpdate = useCallback(
     async (coords: Location.LocationObjectCoords) => {
@@ -105,21 +139,21 @@ export const DashboardScreen: React.FC = () => {
           return;
         }
 
-        applyRegionUpdate(currentLocation.coords);
+        applyRegionUpdate(currentLocation.coords, true);
         await sendLocationUpdateRef.current?.(currentLocation.coords);
 
         locationWatcher.current = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.BestForNavigation,
-            timeInterval: 5000,
-            distanceInterval: 15,
+            timeInterval: 2000,
+            distanceInterval: 5,
           },
           (location) => {
             if (!isMounted) {
               return;
             }
 
-            applyRegionUpdate(location.coords);
+            applyRegionUpdate(location.coords, true);
             void sendLocationUpdateRef.current?.(location.coords);
           },
         );
@@ -139,7 +173,18 @@ export const DashboardScreen: React.FC = () => {
 
   const handleRecenter = useCallback(() => {
     if (userRegion && mapRef.current) {
-      mapRef.current.animateToRegion(userRegion, 500);
+      mapRef.current.animateCamera(
+        {
+          center: {
+            latitude: userRegion.latitude,
+            longitude: userRegion.longitude,
+          },
+          pitch: 0,
+          heading: 0,
+          altitude: 1200,
+        },
+        { duration: 750 },
+      );
     }
   }, [userRegion]);
 
@@ -266,18 +311,18 @@ export const DashboardScreen: React.FC = () => {
             ref={mapRef}
           >
             {userRegion && (
-              <Marker coordinate={userRegion}>
+              <MarkerAnimated coordinate={driverCoordinate.current}>
                 <View style={styles.mapMarker}>
                   <View style={styles.markerHead}>
                     <View style={styles.markerCore} />
                   </View>
                   <View style={styles.markerTail} />
                 </View>
-              </Marker>
+              </MarkerAnimated>
             )}
           </MapView>
 
-          <View pointerEvents="box-none" style={{...styles.mapOverlay, paddingTop: instes.top}}>
+          <View pointerEvents="box-none" style={{ ...styles.mapOverlay, paddingTop: instes.top }}>
             <View style={styles.header}>
               <TouchableOpacity activeOpacity={0.8} style={styles.menuButton}>
                 <View style={styles.menuLine} />

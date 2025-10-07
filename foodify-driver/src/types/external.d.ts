@@ -73,13 +73,28 @@ declare module 'zustand/middleware' {
 
 declare module 'react-native-maps' {
   import type { ComponentType } from 'react';
-  import type { ViewProps } from 'react-native';
+  import type { Animated, ViewProps } from 'react-native';
 
   export type Region = {
     latitude: number;
     longitude: number;
     latitudeDelta: number;
     longitudeDelta: number;
+  };
+
+  export type Camera = {
+    center: {
+      latitude: number;
+      longitude: number;
+    };
+    pitch?: number;
+    heading?: number;
+    altitude?: number;
+    zoom?: number;
+  };
+
+  export type CameraAnimationOptions = {
+    duration?: number;
   };
 
   export type MapViewProps = ViewProps & {
@@ -89,20 +104,52 @@ declare module 'react-native-maps' {
     ref?: unknown;
   };
 
+  export type LatLng = {
+    latitude: number;
+    longitude: number;
+  };
+
   export type MarkerProps = ViewProps & {
-    coordinate: {
-      latitude: number;
-      longitude: number;
-    };
+    coordinate: LatLng | AnimatedRegion;
   };
 
   export const PROVIDER_GOOGLE: 'google';
 
-  const MapView: ComponentType<MapViewProps> & {
-    Marker: ComponentType<MarkerProps>;
+  export class AnimatedRegion extends (Animated.Value as { new (value: any): any }) {
+    constructor(region: {
+      latitude: number;
+      longitude: number;
+      latitudeDelta?: number;
+      longitudeDelta?: number;
+    });
+    timing(value: {
+      latitude: number;
+      longitude: number;
+      duration?: number;
+      useNativeDriver?: boolean;
+    }): { start: (callback?: (finished?: boolean) => void) => void };
+    setValue(value: {
+      latitude: number;
+      longitude: number;
+      latitudeDelta?: number;
+      longitudeDelta?: number;
+    }): void;
+    __getValue(): {
+      latitude: number;
+      longitude: number;
+      latitudeDelta?: number;
+      longitudeDelta?: number;
+    };
+  }
+
+  export type MapViewComponent = ComponentType<MapViewProps> & {
+    Marker: ComponentType<MarkerProps> & { Animated: ComponentType<MarkerProps> };
   };
 
-  export const Marker: ComponentType<MarkerProps>;
+  const MapView: MapViewComponent;
+
+  export const Marker: ComponentType<MarkerProps> & { Animated: ComponentType<MarkerProps> };
+  export const MarkerAnimated: ComponentType<MarkerProps>;
 
   export default MapView;
 }
