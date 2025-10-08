@@ -559,6 +559,16 @@ export const DashboardScreen: React.FC = () => {
     };
   }, [currentShift?.finishableAt]);
 
+  const shiftStatusMessage = useMemo(() => {
+    if (!shiftFinishableDisplay) {
+      return null;
+    }
+
+    return shiftFinishableDisplay.date
+      ? `Shift can end on ${shiftFinishableDisplay.date} at ${shiftFinishableDisplay.time}`
+      : `Shift can end at ${shiftFinishableDisplay.time}`;
+  }, [shiftFinishableDisplay]);
+
   const handleStartShift = useCallback(async () => {
     if (isUpdatingShift) {
       return;
@@ -981,21 +991,6 @@ export const DashboardScreen: React.FC = () => {
             </View>
 
             <View style={styles.overlayBottomContainer}>
-              {hasActiveShift && shiftFinishableDisplay && (
-                <View style={styles.shiftTimerWrapper}>
-                  <Text allowFontScaling={false} style={styles.shiftTimerLabel}>
-                    SHIFT CAN END {shiftFinishableDisplay.date ? 'ON' : 'AT'}
-                  </Text>
-                  <Text allowFontScaling={false} style={styles.shiftTimerValue}>
-                    {shiftFinishableDisplay.time}
-                  </Text>
-                  {shiftFinishableDisplay.date && (
-                    <Text allowFontScaling={false} style={styles.shiftTimerSubValue}>
-                      {shiftFinishableDisplay.date}
-                    </Text>
-                  )}
-                </View>
-              )}
               {isOngoingOrderVisible ? (
                 <OngoingOrderBanner
                   callLabel={callLabel}
@@ -1038,14 +1033,22 @@ export const DashboardScreen: React.FC = () => {
           </View>
         </View>
 
-        <View style={{...styles.footer, paddingBottom: instes.bottom}}>
-          <View>
+        <View style={{ ...styles.footer, paddingBottom: instes.bottom }}>
+          <View style={styles.footerTextWrapper}>
             <Text allowFontScaling={false} style={styles.footerGreeting}>
               HELLO, {formattedName}
             </Text>
-            <Text allowFontScaling={false} style={styles.footerSubtitle}>
-              Ready to work ?
-            </Text>
+            {hasActiveShift && shiftStatusMessage ? (
+              <View style={styles.shiftStatusPill}>
+                <Text allowFontScaling={false} style={styles.shiftStatusText}>
+                  {shiftStatusMessage}
+                </Text>
+              </View>
+            ) : (
+              <Text allowFontScaling={false} style={styles.footerSubtitle}>
+                Ready to work ?
+              </Text>
+            )}
           </View>
 
           <View style={styles.statusWrapper}>
@@ -1294,42 +1297,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  shiftTimerWrapper: {
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: moderateScale(28),
-    paddingVertical: verticalScale(16),
-    borderRadius: moderateScale(999),
-    backgroundColor: '#ffffff',
-    shadowColor: 'rgba(15, 23, 42, 0.12)',
-    shadowOffset: { width: 0, height: verticalScale(6) },
-    shadowOpacity: 1,
-    shadowRadius: moderateScale(18),
-    elevation: moderateScale(10),
-    marginBottom: verticalScale(18),
-    minWidth: moderateScale(200),
-  },
-  shiftTimerLabel: {
-    fontSize: moderateScale(12),
-    fontWeight: '600',
-    letterSpacing: moderateScale(1),
-    color: '#6B7280',
-  },
-  shiftTimerValue: {
-    marginTop: verticalScale(6),
-    fontSize: moderateScale(30),
-    fontWeight: '700',
-    color: '#111827',
-    letterSpacing: moderateScale(1.2),
-  },
-  shiftTimerSubValue: {
-    marginTop: verticalScale(2),
-    fontSize: moderateScale(14),
-    fontWeight: '600',
-    color: '#6B7280',
-    letterSpacing: moderateScale(0.4),
-  },
   goGlow: {
     position: 'absolute',
     width: '100%',
@@ -1389,6 +1356,10 @@ const styles = StyleSheet.create({
     shadowRadius: moderateScale(20),
     elevation: moderateScale(10),
   },
+  footerTextWrapper: {
+    flex: 1,
+    paddingRight: moderateScale(16),
+  },
   footerGreeting: {
     fontSize: moderateScale(16),
     fontWeight: '700',
@@ -1399,6 +1370,20 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(14),
     color: '#6B7280',
     marginTop: verticalScale(2),
+  },
+  shiftStatusPill: {
+    marginTop: verticalScale(8),
+    alignSelf: 'flex-start',
+    backgroundColor: '#CA251B',
+    paddingHorizontal: moderateScale(16),
+    paddingVertical: verticalScale(6),
+    borderRadius: moderateScale(999),
+  },
+  shiftStatusText: {
+    color: '#ffffff',
+    fontSize: moderateScale(13),
+    fontWeight: '600',
+    letterSpacing: moderateScale(0.2),
   },
   statusWrapper: {
     flexDirection: 'row',
