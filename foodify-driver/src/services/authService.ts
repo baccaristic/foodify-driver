@@ -1,0 +1,44 @@
+import axios from 'axios';
+
+import { apiClient } from './api';
+import { ENV } from '../constants/env';
+import type { LoginResponse, RefreshResponse, SessionStatusResponse } from '../types/auth';
+
+const sessionClient = axios.create({
+  baseURL: ENV.baseApiUrl,
+  timeout: 15000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+export const loginDriver = async (email: string, password: string): Promise<LoginResponse> => {
+  const response = await apiClient.post<LoginResponse>('/api/auth/driver/login', {
+    email,
+    password,
+  });
+
+  return response.data;
+};
+
+export const refreshDriverSession = async (
+  refreshToken: string,
+): Promise<RefreshResponse> => {
+  const response = await sessionClient.post<RefreshResponse>('/api/auth/refresh', {
+    refreshToken,
+  });
+
+  return response.data;
+};
+
+export const checkDriverSession = async (
+  accessToken: string,
+): Promise<SessionStatusResponse> => {
+  const response = await sessionClient.get<SessionStatusResponse>('/api/auth/heart-beat', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  return response.data;
+};

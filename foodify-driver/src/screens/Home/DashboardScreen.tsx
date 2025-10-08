@@ -9,13 +9,14 @@ import {
   View,
 } from 'react-native';
 import { moderateScale, verticalScale } from 'react-native-size-matters';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { AnimatedRegion, MarkerAnimated, Region } from 'react-native-maps';
 import type { default as MapViewType } from 'react-native-maps/lib/MapView';
 import * as Location from 'expo-location';
 import { BarcodeScanningResult } from 'expo-camera';
 import { PlatformBlurView } from '../../components/PlatformBlurView';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { updateDriverLocation } from '../../services/driverService';
 import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
 import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
@@ -30,11 +31,23 @@ const DEFAULT_REGION = {
 };
 
 export const DashboardScreen: React.FC = () => {
-  const { phoneNumber, toggleOnlineStatus, isOnline } = useAuth();
+  const { user, toggleOnlineStatus, isOnline } = useAuth();
 
-  const formattedName = (phoneNumber ? phoneNumber : 'RIDER').toUpperCase();
+  const formattedName = (user?.name || user?.email || 'Driver').toUpperCase();
   const [userRegion, setUserRegion] = useState<Region | null>(null);
   const mapRef = useRef<MapViewType | null>(null);
+  const locationWatcher = useRef<Location.LocationSubscription | null>(null);
+  const sendLocationUpdateRef = useRef<
+    ((coords: Location.LocationObjectCoords) => Promise<void>) | null
+  >(null);
+  const driverCoordinate = useRef(
+    new AnimatedRegion({
+      latitude: DEFAULT_REGION.latitude,
+      longitude: DEFAULT_REGION.longitude,
+      latitudeDelta: DEFAULT_REGION.latitudeDelta,
+      longitudeDelta: DEFAULT_REGION.longitudeDelta,
+    }),
+  );
   const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
@@ -43,10 +56,73 @@ export const DashboardScreen: React.FC = () => {
   const goPulse = useRef(new Animated.Value(0)).current;
   const instes = useSafeAreaInsets();
 
+  const applyRegionUpdate = useCallback(
+    (coords: Location.LocationObjectCoords, animateMap: boolean) => {
+      const region: Region = {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+
+      driverCoordinate.current
+        .timing({
+          latitude: region.latitude,
+          longitude: region.longitude,
+          duration: 750,
+          useNativeDriver: false,
+        })
+        .start();
+
+      setUserRegion(region);
+
+      if (animateMap && mapRef.current) {
+        mapRef.current.animateCamera(
+          {
+            center: {
+              latitude: region.latitude,
+              longitude: region.longitude,
+            },
+            pitch: 0,
+            heading: 0,
+            altitude: 1200,
+          },
+          { duration: 750 },
+        );
+      }
+    },
+    [],
+  );
+
+  const sendLocationUpdate = useCallback(
+    async (coords: Location.LocationObjectCoords) => {
+      const driverId = user?.id;
+
+      if (!driverId || !isOnline) {
+        return;
+      }
+
+      try {
+        await updateDriverLocation({
+          driverId,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        });
+      } catch (error) {
+        console.warn('[Dashboard] Failed to update driver location', error);
+      }
+    },
+    [isOnline, user?.id],
+  );
+
+  useEffect(() => {
+    sendLocationUpdateRef.current = sendLocationUpdate;
+  }, [sendLocationUpdate]);
+
   useEffect(() => {
     let isMounted = true;
 
-    const fetchLocation = async () => {
+    const startLocationTracking = async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
 
@@ -55,35 +131,60 @@ export const DashboardScreen: React.FC = () => {
           return;
         }
 
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+        const currentLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.BestForNavigation,
         });
 
-        if (isMounted) {
-          const region: Region = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          };
-          setUserRegion(region);
-          mapRef.current?.animateToRegion(region, 500);
+        if (!isMounted) {
+          return;
         }
+
+        applyRegionUpdate(currentLocation.coords, true);
+        await sendLocationUpdateRef.current?.(currentLocation.coords);
+
+        locationWatcher.current = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.BestForNavigation,
+            timeInterval: 2000,
+            distanceInterval: 5,
+          },
+          (location) => {
+            if (!isMounted) {
+              return;
+            }
+
+            applyRegionUpdate(location.coords, true);
+            void sendLocationUpdateRef.current?.(location.coords);
+          },
+        );
       } catch (error) {
-        console.warn('Unable to fetch current location', error);
+        console.warn('Unable to start location tracking', error);
       }
     };
 
-    fetchLocation();
+    startLocationTracking();
 
     return () => {
       isMounted = false;
+      locationWatcher.current?.remove();
+      locationWatcher.current = null;
     };
-  }, []);
+  }, [applyRegionUpdate]);
 
   const handleRecenter = useCallback(() => {
     if (userRegion && mapRef.current) {
-      mapRef.current.animateToRegion(userRegion, 500);
+      mapRef.current.animateCamera(
+        {
+          center: {
+            latitude: userRegion.latitude,
+            longitude: userRegion.longitude,
+          },
+          pitch: 0,
+          heading: 0,
+          altitude: 1200,
+        },
+        { duration: 750 },
+      );
     }
   }, [userRegion]);
 
@@ -210,18 +311,18 @@ export const DashboardScreen: React.FC = () => {
             ref={mapRef}
           >
             {userRegion && (
-              <Marker coordinate={userRegion}>
+              <MarkerAnimated coordinate={driverCoordinate.current}>
                 <View style={styles.mapMarker}>
                   <View style={styles.markerHead}>
                     <View style={styles.markerCore} />
                   </View>
                   <View style={styles.markerTail} />
                 </View>
-              </Marker>
+              </MarkerAnimated>
             )}
           </MapView>
 
-          <View pointerEvents="box-none" style={{...styles.mapOverlay, paddingTop: instes.top}}>
+          <View pointerEvents="box-none" style={{ ...styles.mapOverlay, paddingTop: instes.top }}>
             <View style={styles.header}>
               <TouchableOpacity activeOpacity={0.8} style={styles.menuButton}>
                 <View style={styles.menuLine} />

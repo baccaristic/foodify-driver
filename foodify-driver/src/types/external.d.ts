@@ -16,11 +16,21 @@ declare module 'expo-secure-store' {
 }
 
 declare module 'axios' {
-  export type AxiosRequestConfig = Record<string, unknown>;
-  export type AxiosResponse<T = any> = { data: T } & Record<string, unknown>;
-  export type AxiosError = Error & { response?: AxiosResponse };
+  export type AxiosRequestConfig = {
+    url?: string;
+    headers?: Record<string, string>;
+    _retry?: boolean;
+  } & Record<string, unknown>;
+  export type AxiosResponse<T = any> = { data: T; status?: number } & Record<string, unknown>;
+  export type AxiosError<T = any> = Error & {
+    code?: string;
+    response?: AxiosResponse<T>;
+    config?: AxiosRequestConfig;
+  };
   export interface AxiosInstance {
     (config: AxiosRequestConfig): Promise<AxiosResponse>;
+    post<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
+    get<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
     create: (config?: AxiosRequestConfig) => AxiosInstance;
     interceptors: {
       request: { use: (fulfilled: (config: AxiosRequestConfig) => AxiosRequestConfig, rejected?: (error: any) => any) => void };
@@ -32,6 +42,7 @@ declare module 'axios' {
       };
     };
   }
+  export function isAxiosError<T = any>(payload: unknown): payload is AxiosError<T>;
   const axios: AxiosInstance;
   export default axios;
 }
@@ -39,7 +50,12 @@ declare module 'axios' {
 declare module 'zustand' {
   export type SetState<T> = (updater: (state: T) => T | Partial<T>) => void;
   export type StateCreator<T> = (set: SetState<T>, get: () => T) => T;
-  export function create<T>(creator: StateCreator<T>): () => T;
+  export type StoreApi<T> = {
+    (): T;
+    getState: () => T;
+    setState: SetState<T>;
+  };
+  export function create<T>(creator: StateCreator<T>): StoreApi<T>;
 }
 
 declare module 'zustand/middleware' {
@@ -57,7 +73,7 @@ declare module 'zustand/middleware' {
 
 declare module 'react-native-maps' {
   import type { ComponentType } from 'react';
-  import type { ViewProps } from 'react-native';
+  import type { Animated, ViewProps } from 'react-native';
 
   export type Region = {
     latitude: number;
@@ -66,28 +82,90 @@ declare module 'react-native-maps' {
     longitudeDelta: number;
   };
 
+  export type Camera = {
+    center: {
+      latitude: number;
+      longitude: number;
+    };
+    pitch?: number;
+    heading?: number;
+    altitude?: number;
+    zoom?: number;
+  };
+
+  export type CameraAnimationOptions = {
+    duration?: number;
+  };
+
   export type MapViewProps = ViewProps & {
     provider?: 'google' | 'default';
     initialRegion?: Region;
     customMapStyle?: Array<Record<string, unknown>>;
+    ref?: unknown;
+  };
+
+  export type LatLng = {
+    latitude: number;
+    longitude: number;
   };
 
   export type MarkerProps = ViewProps & {
-    coordinate: {
-      latitude: number;
-      longitude: number;
-    };
+    coordinate: LatLng | AnimatedRegion;
   };
 
   export const PROVIDER_GOOGLE: 'google';
 
-  const MapView: ComponentType<MapViewProps> & {
-    Marker: ComponentType<MarkerProps>;
+  export class AnimatedRegion extends (Animated.Value as { new (value: any): any }) {
+    constructor(region: {
+      latitude: number;
+      longitude: number;
+      latitudeDelta?: number;
+      longitudeDelta?: number;
+    });
+    timing(value: {
+      latitude: number;
+      longitude: number;
+      duration?: number;
+      useNativeDriver?: boolean;
+    }): { start: (callback?: (finished?: boolean) => void) => void };
+    setValue(value: {
+      latitude: number;
+      longitude: number;
+      latitudeDelta?: number;
+      longitudeDelta?: number;
+    }): void;
+    __getValue(): {
+      latitude: number;
+      longitude: number;
+      latitudeDelta?: number;
+      longitudeDelta?: number;
+    };
+  }
+
+  export type MapViewComponent = ComponentType<MapViewProps> & {
+    Marker: ComponentType<MarkerProps> & { Animated: ComponentType<MarkerProps> };
   };
 
-  export const Marker: ComponentType<MarkerProps>;
+  const MapView: MapViewComponent;
+
+  export const Marker: ComponentType<MarkerProps> & { Animated: ComponentType<MarkerProps> };
+  export const MarkerAnimated: ComponentType<MarkerProps>;
 
   export default MapView;
+}
+
+declare module 'react-native-safe-area-context' {
+  import type { ReactNode } from 'react';
+
+  export type EdgeInsets = {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  };
+
+  export const SafeAreaProvider: React.FC<{ children?: ReactNode }>;
+  export function useSafeAreaInsets(): EdgeInsets;
 }
 
 declare module 'react-native-size-matters' {

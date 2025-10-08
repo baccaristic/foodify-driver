@@ -2,6 +2,8 @@ import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import type { AuthTokens, DriverUser, LoginResponse } from '../types/auth';
+
 type MemoryStore = Record<string, string>;
 
 type SecureStoreModule = typeof SecureStore & {
@@ -9,11 +11,14 @@ type SecureStoreModule = typeof SecureStore & {
 };
 
 export type AuthState = {
-  phoneNumber: string;
-  token?: string;
+  user: DriverUser | null;
+  accessToken: string | null;
+  refreshToken: string | null;
   isOnline: boolean;
-  setPhoneNumber: (phone: string) => void;
-  authenticate: (phone: string, token: string) => void;
+  hasHydrated: boolean;
+  authenticate: (payload: LoginResponse) => void;
+  setTokens: (tokens: AuthTokens) => void;
+  setHydrated: (value: boolean) => void;
   logout: () => void;
   toggleOnlineStatus: () => void;
 };
@@ -98,22 +103,54 @@ export const useAuthStore = create<AuthState>(
         updater: (state: AuthState) => AuthState | Partial<AuthState>,
       ) => void,
     ) => ({
-      phoneNumber: '',
-      token: undefined,
+      user: null,
+      accessToken: null,
+      refreshToken: null,
       isOnline: false,
-      setPhoneNumber: (phoneNumber: string) => set(() => ({ phoneNumber })),
-      authenticate: (phoneNumber: string, token: string) => set(() => ({ phoneNumber, token })),
-      logout: () => set(() => ({ token: undefined, isOnline: false, phoneNumber: '' })),
+      hasHydrated: false,
+      authenticate: ({ user, accessToken, refreshToken }: LoginResponse) =>
+        set(() => ({
+          user,
+          accessToken,
+          refreshToken,
+          isOnline: user?.available ?? false,
+          hasHydrated: true,
+        })),
+      setTokens: ({ accessToken, refreshToken }: AuthTokens) =>
+        set((state) => ({
+          accessToken,
+          refreshToken: refreshToken ?? state.refreshToken,
+        })),
+      setHydrated: (value: boolean) =>
+        set(() => ({
+          hasHydrated: value,
+        })),
+      logout: () =>
+        set(() => ({
+          user: null,
+          accessToken: null,
+          refreshToken: null,
+          isOnline: false,
+          hasHydrated: true,
+        })),
       toggleOnlineStatus: () => set((state) => ({ isOnline: !state.isOnline })),
     }),
     {
       name: 'foodify-driver-auth',
       storage: createJSONStorage(() => secureStorage),
       partialize: (state: AuthState) => ({
-        phoneNumber: state.phoneNumber,
-        token: state.token,
+        user: state.user,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
         isOnline: state.isOnline,
       }),
+      onRehydrateStorage: () => (state: AuthState | undefined, error: unknown) => {
+        if (error) {
+          console.warn('[authStore] Failed to rehydrate auth store', error);
+        }
+
+        state?.setHydrated(true);
+      },
     },
   ),
 );
