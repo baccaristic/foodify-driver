@@ -29,6 +29,51 @@ import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DriverShift, DriverShiftStatus } from '../../types/shift';
 
+const parseShiftDate = (value: string | null | undefined): Date | null => {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  const directDate = new Date(trimmed);
+
+  if (!Number.isNaN(directDate.getTime())) {
+    return directDate;
+  }
+
+  const normalized = trimmed.includes('T')
+    ? trimmed
+    : trimmed.replace(' ', 'T');
+  const withTimezone = /[zZ]|[+-]\d\d:?\d\d$/.test(normalized)
+    ? normalized
+    : `${normalized}Z`;
+  const zonedDate = new Date(withTimezone);
+
+  if (!Number.isNaN(zonedDate.getTime())) {
+    return zonedDate;
+  }
+
+  const localMatch = normalized.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/,
+  );
+
+  if (!localMatch) {
+    return null;
+  }
+
+  const [, year, month, day, hours, minutes, seconds = '0'] = localMatch;
+
+  return new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hours),
+    Number(minutes),
+    Number(seconds),
+  );
+};
+
 const DEFAULT_REGION = {
   latitude: 47.5726,
   longitude: -122.3863,
@@ -303,9 +348,9 @@ export const DashboardScreen: React.FC = () => {
       return;
     }
 
-    const startDate = new Date(currentShift.startedAt);
+    const startDate = parseShiftDate(currentShift.startedAt);
 
-    if (Number.isNaN(startDate.getTime())) {
+    if (!startDate) {
       setShiftDuration('00:00:00');
       return;
     }
