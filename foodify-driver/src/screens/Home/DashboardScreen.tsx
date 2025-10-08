@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Animated,
+  AppState,
+  AppStateStatus,
   Easing,
   StyleSheet,
   Switch,
@@ -18,6 +20,7 @@ import { PlatformBlurView } from '../../components/PlatformBlurView';
 
 import { useAuth } from '../../contexts/AuthContext';
 import {
+  getDriverOngoingOrder,
   getCurrentDriverShift,
   updateDriverAvailability,
   updateDriverLocation,
@@ -28,6 +31,7 @@ import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetails
 import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DriverShift, DriverShiftStatus } from '../../types/shift';
+import { OrderDto, OrderStatus } from '../../types/order';
 
 const parseShiftDate = (value: string | null | undefined): Date | null => {
   if (!value) {
@@ -85,6 +89,34 @@ const DEFAULT_REGION = {
   longitudeDelta: 0.025,
 };
 
+const EMPTY_ONGOING_ORDER_PLACEHOLDER: OrderDto = {
+  id: 0,
+  restaurantName: null,
+  restaurantId: null,
+  restaurantAddress: null,
+  restaurantLocation: null,
+  restaurantPhone: null,
+  clientId: null,
+  clientName: null,
+  clientPhone: null,
+  clientAddress: null,
+  clientLocation: null,
+  savedAddress: null,
+  total: null,
+  status: OrderStatus.ACCEPTED,
+  createdAt: null,
+  items: [],
+  driverId: null,
+  driverName: null,
+  driverPhone: null,
+  estimatedPickUpTime: null,
+  estimatedDeliveryTime: null,
+  driverAssignedAt: null,
+  pickedUpAt: null,
+  deliveredAt: null,
+  upcoming: false,
+};
+
 export const DashboardScreen: React.FC = () => {
   const { user, isOnline, accessToken, hasHydrated, setOnlineStatus } = useAuth();
 
@@ -105,6 +137,7 @@ export const DashboardScreen: React.FC = () => {
   );
   const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
+  const [ongoingOrder, setOngoingOrder] = useState<OrderDto | null>(null);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
@@ -116,6 +149,8 @@ export const DashboardScreen: React.FC = () => {
   const instes = useSafeAreaInsets();
   const shiftUpdateSequenceRef = useRef(0);
   const isMountedRef = useRef(true);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState as AppStateStatus);
+  const ongoingOrderRequestIdRef = useRef(0);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -124,6 +159,16 @@ export const DashboardScreen: React.FC = () => {
       isMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    const hasOrder = Boolean(ongoingOrder);
+
+    setOngoingOrderVisible(hasOrder);
+
+    if (hasOrder) {
+      setIncomingOrderVisible(false);
+    }
+  }, [ongoingOrder]);
 
   const applyShiftUpdate = useCallback(
     (shift: DriverShift | null, expectedSequence?: number) => {
@@ -206,6 +251,58 @@ export const DashboardScreen: React.FC = () => {
   useEffect(() => {
     sendLocationUpdateRef.current = sendLocationUpdate;
   }, [sendLocationUpdate]);
+
+  const syncOngoingOrder = useCallback(async () => {
+    ongoingOrderRequestIdRef.current += 1;
+    const requestId = ongoingOrderRequestIdRef.current;
+
+    if (!hasHydrated || !accessToken) {
+      if (isMountedRef.current && requestId === ongoingOrderRequestIdRef.current) {
+        setOngoingOrder(null);
+      }
+      return;
+    }
+
+    try {
+      const order = await getDriverOngoingOrder();
+
+      if (!isMountedRef.current || requestId !== ongoingOrderRequestIdRef.current) {
+        return;
+      }
+
+      setOngoingOrder(order);
+    } catch (error) {
+      console.warn('[Dashboard] Failed to fetch ongoing order', error);
+    }
+  }, [accessToken, hasHydrated]);
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    void syncOngoingOrder();
+  }, [hasHydrated, syncOngoingOrder]);
+
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextAppState;
+
+      if (
+        (previousState === 'inactive' || previousState === 'background') &&
+        nextAppState === 'active'
+      ) {
+        void syncOngoingOrder();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [syncOngoingOrder]);
 
   const fetchShift = useCallback(async (): Promise<DriverShift | null | undefined> => {
     try {
@@ -484,12 +581,12 @@ export const DashboardScreen: React.FC = () => {
 
   const handleAcceptOrder = useCallback(() => {
     setIncomingOrderVisible(false);
-    setOngoingOrderVisible(true);
+    setOngoingOrder((current) => current ?? EMPTY_ONGOING_ORDER_PLACEHOLDER);
   }, []);
 
   const handleDeclineOrder = useCallback(() => {
     setIncomingOrderVisible(false);
-    setOngoingOrderVisible(false);
+    setOngoingOrder(null);
   }, []);
 
   const handleCallRestaurant = useCallback(() => {
