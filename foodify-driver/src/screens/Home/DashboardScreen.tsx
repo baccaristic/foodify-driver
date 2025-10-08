@@ -55,14 +55,17 @@ const parseShiftDate = (value: string | null | undefined): Date | null => {
   }
 
   const localMatch = normalized.match(
-    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/,
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(\.(\d+))?)?$/,
   );
 
   if (!localMatch) {
     return null;
   }
 
-  const [, year, month, day, hours, minutes, seconds = '0'] = localMatch;
+  const [, year, month, day, hours, minutes, seconds = '0', , fractionalSeconds] = localMatch;
+  const milliseconds = fractionalSeconds
+    ? Math.floor(Number((fractionalSeconds + '000').slice(0, 3)))
+    : 0;
 
   return new Date(
     Number(year),
@@ -71,6 +74,7 @@ const parseShiftDate = (value: string | null | undefined): Date | null => {
     Number(hours),
     Number(minutes),
     Number(seconds),
+    milliseconds,
   );
 };
 
@@ -413,9 +417,7 @@ export const DashboardScreen: React.FC = () => {
         return;
       }
 
-      const finishableAt = currentShift?.finishableAt
-        ? new Date(currentShift.finishableAt)
-        : null;
+      const finishableAt = parseShiftDate(currentShift?.finishableAt ?? null);
 
       if (finishableAt && !Number.isNaN(finishableAt.getTime())) {
         const now = Date.now();
