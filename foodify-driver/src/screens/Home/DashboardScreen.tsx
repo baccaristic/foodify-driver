@@ -28,8 +28,6 @@ import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetails
 import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DriverShift, DriverShiftStatus } from '../../types/shift';
-import { ENV } from '../../constants/env';
-import type { OrderDto } from '../../types/order';
 
 const parseShiftDate = (value: string | null | undefined): Date | null => {
   if (!value) {
@@ -80,211 +78,6 @@ const parseShiftDate = (value: string | null | undefined): Date | null => {
   );
 };
 
-type StompFrame = {
-  command: string;
-  headers: Record<string, string>;
-  body: string;
-};
-
-const STOMP_FRAME_DELIMITER = '\u0000';
-const ORDER_SUBSCRIPTION_ID = 'driver-orders';
-const DEFAULT_INCOMING_COUNTDOWN_SECONDS = 90;
-
-const ensureOrdersWebsocketPath = (url: URL) => {
-  const rawPath = url.pathname ?? '';
-  const trimmedPath =
-    rawPath === '/' ? '' : rawPath.endsWith('/') ? rawPath.slice(0, -1) : rawPath;
-
-  if (!trimmedPath) {
-    url.pathname = '/ws';
-    return;
-  }
-
-  if (trimmedPath === '/ws' || trimmedPath.endsWith('/ws')) {
-    url.pathname = trimmedPath;
-    return;
-  }
-
-  url.pathname = `${trimmedPath}/ws`;
-};
-
-const normalizeExplicitWebsocketUrl = (candidate: string | undefined | null): string | null => {
-  if (!candidate) {
-    return null;
-  }
-
-  try {
-    const url = new URL(candidate);
-
-    if (url.protocol === 'http:' || url.protocol === 'https:') {
-      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-      ensureOrdersWebsocketPath(url);
-      return url.toString();
-    }
-
-    if (url.protocol === 'ws:' || url.protocol === 'wss:') {
-      if (!url.pathname || url.pathname === '/') {
-        url.pathname = '/ws';
-      }
-
-      return url.toString();
-    }
-  } catch (error) {
-    console.warn('[Dashboard] Invalid websocket URL candidate', candidate, error);
-  }
-
-  return null;
-};
-
-const normalizeBaseApiWebsocketUrl = (baseApiUrl: string | undefined | null): string | null => {
-  if (!baseApiUrl) {
-    return null;
-  }
-
-  try {
-    const url = new URL(baseApiUrl);
-
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      return null;
-    }
-
-    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-    ensureOrdersWebsocketPath(url);
-
-    return url.toString();
-  } catch (error) {
-    console.warn('[Dashboard] Invalid base API URL', baseApiUrl, error);
-    return null;
-  }
-};
-
-const readStompFrames = (
-  bufferRef: React.MutableRefObject<string>,
-  chunk: string,
-): StompFrame[] => {
-  bufferRef.current += chunk;
-
-  let working = bufferRef.current;
-  const frames: StompFrame[] = [];
-
-  while (true) {
-    while (working.startsWith('\n')) {
-      working = working.slice(1);
-    }
-
-    if (!working) {
-      break;
-    }
-
-    const commandEnd = working.indexOf('\n');
-
-    if (commandEnd === -1) {
-      break;
-    }
-
-    const command = working.slice(0, commandEnd).trim();
-
-    if (!command) {
-      working = working.slice(commandEnd + 1);
-      continue;
-    }
-
-    let cursor = commandEnd + 1;
-    const headers: Record<string, string> = {};
-
-    while (cursor < working.length) {
-      const lineEnd = working.indexOf('\n', cursor);
-
-      if (lineEnd === -1) {
-        bufferRef.current = working;
-        return frames;
-      }
-
-      if (lineEnd === cursor) {
-        cursor = lineEnd + 1;
-        break;
-      }
-
-      const headerLine = working.slice(cursor, lineEnd);
-      const separatorIndex = headerLine.indexOf(':');
-
-      if (separatorIndex >= 0) {
-        const key = headerLine.slice(0, separatorIndex).trim();
-        const value = headerLine.slice(separatorIndex + 1).trim();
-
-        headers[key] = value;
-      }
-
-      cursor = lineEnd + 1;
-    }
-
-    const contentLengthHeader = headers['content-length'];
-
-    if (contentLengthHeader != null) {
-      const contentLength = Number(contentLengthHeader);
-
-      if (!Number.isNaN(contentLength)) {
-        if (cursor + contentLength > working.length) {
-          break;
-        }
-
-        const body = working.slice(cursor, cursor + contentLength);
-        let frameEnd = cursor + contentLength;
-
-        if (working[frameEnd] === '\n') {
-          frameEnd += 1;
-        }
-
-        if (working[frameEnd] === STOMP_FRAME_DELIMITER) {
-          frameEnd += 1;
-        } else {
-          const delimiterIndex = working.indexOf(STOMP_FRAME_DELIMITER, frameEnd);
-
-          if (delimiterIndex === -1) {
-            break;
-          }
-
-          frameEnd = delimiterIndex + 1;
-        }
-
-        frames.push({ command, headers, body });
-        working = working.slice(frameEnd);
-        continue;
-      }
-    }
-
-    const terminatorIndex = working.indexOf(STOMP_FRAME_DELIMITER, cursor);
-
-    if (terminatorIndex === -1) {
-      break;
-    }
-
-    const body = working.slice(cursor, terminatorIndex);
-    working = working.slice(terminatorIndex + 1);
-
-    frames.push({ command, headers, body });
-  }
-
-  bufferRef.current = working;
-
-  return frames;
-};
-
-const computeInitialIncomingCountdown = (order: OrderDto): number => {
-  const pickUpValue = order?.estimatedPickUpTime;
-  const asNumber = typeof pickUpValue === 'string' ? Number(pickUpValue) : pickUpValue;
-
-  if (typeof asNumber === 'number' && Number.isFinite(asNumber)) {
-    const deltaMs = asNumber - Date.now();
-
-    if (Number.isFinite(deltaMs) && deltaMs > 0) {
-      return Math.max(Math.ceil(deltaMs / 1000), 1);
-    }
-  }
-
-  return DEFAULT_INCOMING_COUNTDOWN_SECONDS;
-};
-
 const DEFAULT_REGION = {
   latitude: 47.5726,
   longitude: -122.3863,
@@ -310,17 +103,9 @@ export const DashboardScreen: React.FC = () => {
       longitudeDelta: DEFAULT_REGION.longitudeDelta,
     }),
   );
-  const ordersSocketRef = useRef<WebSocket | null>(null);
-  const ordersReconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stompBufferRef = useRef('');
-  const stompConnectedRef = useRef(false);
-  const isOrdersSubscribedRef = useRef(false);
-  const shouldMaintainOrdersConnectionRef = useRef(false);
-  const [incomingOrder, setIncomingOrder] = useState<OrderDto | null>(null);
-  const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(false);
-  const [incomingCountdown, setIncomingCountdown] = useState<number>(0);
-  const [ongoingOrder, setOngoingOrder] = useState<OrderDto | null>(null);
+  const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
+  const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
   const [currentShift, setCurrentShift] = useState<DriverShift | null>(null);
@@ -331,91 +116,6 @@ export const DashboardScreen: React.FC = () => {
   const instes = useSafeAreaInsets();
   const shiftUpdateSequenceRef = useRef(0);
   const isMountedRef = useRef(true);
-
-  const clearOrdersReconnectTimeout = useCallback(() => {
-    if (ordersReconnectTimeoutRef.current) {
-      clearTimeout(ordersReconnectTimeoutRef.current);
-      ordersReconnectTimeoutRef.current = null;
-    }
-  }, []);
-
-  const closeOrdersSocket = useCallback(() => {
-    clearOrdersReconnectTimeout();
-
-    const socket = ordersSocketRef.current;
-
-    if (socket) {
-      try {
-        if (isOrdersSubscribedRef.current && socket.readyState === 1) {
-          socket.send(
-            ['UNSUBSCRIBE', `id:${ORDER_SUBSCRIPTION_ID}`, '', STOMP_FRAME_DELIMITER].join('\n'),
-          );
-        }
-      } catch (error) {
-        console.warn('[Dashboard] Failed to unsubscribe from driver orders channel', error);
-      }
-
-      try {
-        if (stompConnectedRef.current && socket.readyState === 1) {
-          socket.send(['DISCONNECT', '', STOMP_FRAME_DELIMITER].join('\n'));
-        }
-      } catch (error) {
-        console.warn('[Dashboard] Failed to send STOMP disconnect frame', error);
-      }
-
-      try {
-        socket.close();
-      } catch (error) {
-        console.warn('[Dashboard] Failed to close orders websocket', error);
-      }
-    }
-
-    ordersSocketRef.current = null;
-    stompConnectedRef.current = false;
-    isOrdersSubscribedRef.current = false;
-    stompBufferRef.current = '';
-  }, [clearOrdersReconnectTimeout]);
-
-  const resolveOrdersWebsocketUrl = useCallback((): string | null => {
-    const explicitUrl = normalizeExplicitWebsocketUrl(ENV.websocketUrl);
-
-    if (explicitUrl) {
-      return explicitUrl;
-    }
-
-    const derivedUrl = normalizeBaseApiWebsocketUrl(ENV.baseApiUrl);
-
-    if (!derivedUrl) {
-      console.warn('[Dashboard] Unable to determine orders websocket URL');
-    }
-
-    return derivedUrl;
-  }, []);
-
-  const dismissIncomingOrder = useCallback(() => {
-    setIncomingOrder(null);
-    setIncomingOrderVisible(false);
-    setIncomingCountdown(0);
-  }, []);
-
-  const handleDriverOrderMessage = useCallback(
-    (order: OrderDto) => {
-      if (order.upcoming) {
-        setOngoingOrder(null);
-        setOngoingOrderVisible(false);
-        setIncomingOrder(order);
-        setIncomingCountdown(computeInitialIncomingCountdown(order));
-        setIncomingOrderVisible(true);
-        setOrderDetailsVisible(false);
-        return;
-      }
-
-      dismissIncomingOrder();
-      setOngoingOrder(order);
-      setOngoingOrderVisible(true);
-    },
-    [dismissIncomingOrder],
-  );
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -626,185 +326,6 @@ export const DashboardScreen: React.FC = () => {
     };
   }, [applyRegionUpdate]);
 
-  useEffect(() => {
-    const shouldConnect = Boolean(accessToken && hasActiveShift && isOnline);
-
-    shouldMaintainOrdersConnectionRef.current = shouldConnect;
-
-    if (!shouldConnect) {
-      closeOrdersSocket();
-      return;
-    }
-
-    const websocketUrl = resolveOrdersWebsocketUrl();
-
-    if (!websocketUrl) {
-      return;
-    }
-
-    let isCancelled = false;
-
-    const connect = () => {
-      clearOrdersReconnectTimeout();
-
-      if (isCancelled || !shouldMaintainOrdersConnectionRef.current) {
-        return;
-      }
-
-      try {
-        const socket = new (WebSocket as unknown as {
-          new (url: string, protocols?: string | string[], options?: unknown): WebSocket;
-        })(websocketUrl, undefined, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        ordersSocketRef.current = socket;
-        stompConnectedRef.current = false;
-        isOrdersSubscribedRef.current = false;
-        stompBufferRef.current = '';
-
-        socket.onopen = () => {
-          if (isCancelled || socket !== ordersSocketRef.current) {
-            return;
-          }
-
-          let hostHeader: string | undefined;
-
-          try {
-            const parsed = new URL(websocketUrl);
-            hostHeader = parsed.host;
-          } catch (error) {
-            console.warn('[Dashboard] Unable to determine websocket host header', error);
-          }
-
-          const headerLines = [
-            hostHeader ? `host:${hostHeader}` : null,
-            'accept-version:1.2',
-            'heart-beat:0,0',
-            `Authorization:Bearer ${accessToken}`,
-          ].filter(Boolean) as string[];
-
-          const frame = ['CONNECT', ...headerLines, '', STOMP_FRAME_DELIMITER].join('\n');
-
-          try {
-            socket.send(frame);
-          } catch (error) {
-            console.warn('[Dashboard] Failed to send STOMP CONNECT frame', error);
-          }
-        };
-
-        socket.onmessage = (event) => {
-          if (isCancelled || socket !== ordersSocketRef.current) {
-            return;
-          }
-
-          if (typeof event.data !== 'string') {
-            return;
-          }
-
-          const frames = readStompFrames(stompBufferRef, event.data);
-
-          frames.forEach((frame) => {
-            if (frame.command === 'CONNECTED') {
-              stompConnectedRef.current = true;
-
-              if (socket.readyState === 1) {
-                const subscribeFrame = [
-                  'SUBSCRIBE',
-                  `id:${ORDER_SUBSCRIPTION_ID}`,
-                  'ack:auto',
-                  'destination:/user/queue/orders',
-                  '',
-                  STOMP_FRAME_DELIMITER,
-                ].join('\n');
-
-                try {
-                  socket.send(subscribeFrame);
-                  isOrdersSubscribedRef.current = true;
-                } catch (error) {
-                  console.warn('[Dashboard] Failed to subscribe to orders queue', error);
-                }
-              }
-
-              return;
-            }
-
-            if (frame.command === 'MESSAGE') {
-              if (!frame.body) {
-                return;
-              }
-
-              try {
-                const payload = JSON.parse(frame.body) as OrderDto;
-                handleDriverOrderMessage(payload);
-              } catch (error) {
-                console.warn('[Dashboard] Failed to parse order message', error);
-              }
-
-              return;
-            }
-
-            if (frame.command === 'ERROR') {
-              const message = frame.headers.message || frame.body || 'Unknown STOMP error';
-              console.warn('[Dashboard] STOMP error', message);
-            }
-          });
-        };
-
-        socket.onerror = (event) => {
-          console.warn('[Dashboard] Orders websocket error', event);
-        };
-
-        socket.onclose = () => {
-          if (socket === ordersSocketRef.current) {
-            ordersSocketRef.current = null;
-          }
-
-          stompConnectedRef.current = false;
-          isOrdersSubscribedRef.current = false;
-          stompBufferRef.current = '';
-
-          if (isCancelled || !shouldMaintainOrdersConnectionRef.current) {
-            return;
-          }
-
-          clearOrdersReconnectTimeout();
-
-          ordersReconnectTimeoutRef.current = setTimeout(() => {
-            connect();
-          }, 5000);
-        };
-      } catch (error) {
-        console.warn('[Dashboard] Failed to open orders websocket', error);
-
-        if (isCancelled || !shouldMaintainOrdersConnectionRef.current) {
-          return;
-        }
-
-        clearOrdersReconnectTimeout();
-        ordersReconnectTimeoutRef.current = setTimeout(connect, 5000);
-      }
-    };
-
-    connect();
-
-    return () => {
-      isCancelled = true;
-      shouldMaintainOrdersConnectionRef.current = false;
-      closeOrdersSocket();
-    };
-  }, [
-    accessToken,
-    clearOrdersReconnectTimeout,
-    closeOrdersSocket,
-    handleDriverOrderMessage,
-    hasActiveShift,
-    isOnline,
-    resolveOrdersWebsocketUrl,
-  ]);
-
   const handleRecenter = useCallback(() => {
     if (userRegion && mapRef.current) {
       mapRef.current.animateCamera(
@@ -829,8 +350,8 @@ export const DashboardScreen: React.FC = () => {
 
     const intervalId = setInterval(() => {
       setIncomingCountdown((prev) => {
-        if (prev <= 1) {
-          dismissIncomingOrder();
+        if (prev <= 0) {
+          clearInterval(intervalId);
           return 0;
         }
 
@@ -841,18 +362,13 @@ export const DashboardScreen: React.FC = () => {
     return () => {
       clearInterval(intervalId);
     };
-  }, [dismissIncomingOrder, isIncomingOrderVisible]);
+  }, [isIncomingOrderVisible]);
 
   useEffect(() => {
-    if (hasActiveShift && isOnline) {
-      return;
+    if (incomingCountdown <= 0) {
+      setIncomingOrderVisible(false);
     }
-
-    dismissIncomingOrder();
-    setOngoingOrder(null);
-    setOngoingOrderVisible(false);
-    setOrderDetailsVisible(false);
-  }, [dismissIncomingOrder, hasActiveShift, isOnline]);
+  }, [incomingCountdown]);
 
   const shiftFinishableDisplay = useMemo(() => {
     if (!currentShift?.finishableAt) {
@@ -967,34 +483,23 @@ export const DashboardScreen: React.FC = () => {
   );
 
   const handleAcceptOrder = useCallback(() => {
-    if (!incomingOrder) {
-      dismissIncomingOrder();
-      return;
-    }
-
-    setOngoingOrder(incomingOrder);
+    setIncomingOrderVisible(false);
     setOngoingOrderVisible(true);
-    dismissIncomingOrder();
-  }, [dismissIncomingOrder, incomingOrder]);
+  }, []);
 
   const handleDeclineOrder = useCallback(() => {
-    dismissIncomingOrder();
-    setOngoingOrder(null);
+    setIncomingOrderVisible(false);
     setOngoingOrderVisible(false);
-  }, [dismissIncomingOrder]);
+  }, []);
 
   const handleCallRestaurant = useCallback(() => {
     console.log('Call Restaurant pressed');
   }, []);
 
   const handleSeeOrderDetails = useCallback(() => {
-    if (!ongoingOrder) {
-      return;
-    }
-
     console.log('See order details pressed');
     setOrderDetailsVisible(true);
-  }, [ongoingOrder]);
+  }, []);
 
   const handleLookForDirection = useCallback(() => {
     console.log('Look for direction pressed');
@@ -1061,15 +566,6 @@ export const DashboardScreen: React.FC = () => {
     inputRange: [0, 1],
     outputRange: [0.2, 0.45],
   });
-
-  const shouldShowIncomingOverlay = Boolean(isIncomingOrderVisible && incomingOrder);
-  const incomingOrderLabel = incomingOrder?.restaurantName ?? 'New Order';
-  const incomingOrderSubtitle = incomingOrder?.restaurantAddress
-    ? `Pickup at ${incomingOrder.restaurantAddress}`
-    : incomingOrder?.clientAddress
-      ? `Deliver to ${incomingOrder.clientAddress}`
-      : 'You have a new pickup request';
-  const shouldShowOngoingBanner = Boolean(isOngoingOrderVisible && ongoingOrder);
 
   useEffect(() => {
     if (hasActiveShift && !isOnline) {
@@ -1142,7 +638,7 @@ export const DashboardScreen: React.FC = () => {
                   )}
                 </View>
               )}
-              {shouldShowOngoingBanner ? (
+              {isOngoingOrderVisible ? (
                 <OngoingOrderBanner
                   onCallRestaurant={handleCallRestaurant}
                   onSeeOrderDetails={handleSeeOrderDetails}
@@ -1203,15 +699,15 @@ export const DashboardScreen: React.FC = () => {
           </View>
         </View>
 
-        {shouldShowIncomingOverlay && (
+        {isIncomingOrderVisible && (
           <>
             <PlatformBlurView intensity={45} tint="dark" style={styles.blurOverlay} />
             <IncomingOrderOverlay
               countdownSeconds={incomingCountdown}
               onAccept={handleAcceptOrder}
               onDecline={handleDeclineOrder}
-              orderLabel={incomingOrderLabel}
-              subtitle={incomingOrderSubtitle}
+              orderLabel="New Order"
+              subtitle="You have a new pickup request"
             />
           </>
         )}
