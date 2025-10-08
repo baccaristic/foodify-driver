@@ -24,3 +24,15 @@ export const getCurrentDriverShift = async (): Promise<DriverShift | null> => {
 
   return response.data;
 };
+
+type UpdateDriverAvailabilityPayload = {
+  available: boolean;
+};
+
+export const updateDriverAvailability = async (
+  payload: UpdateDriverAvailabilityPayload,
+): Promise<DriverShift> => {
+  const response = await apiClient.post<DriverShift>('/api/driver/updateStatus', payload);
+
+  return response.data;
+};

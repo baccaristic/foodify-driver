@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
   Easing,
   StyleSheet,
@@ -16,7 +17,11 @@ import { BarcodeScanningResult } from 'expo-camera';
 import { PlatformBlurView } from '../../components/PlatformBlurView';
 
 import { useAuth } from '../../contexts/AuthContext';
-import { getCurrentDriverShift, updateDriverLocation } from '../../services/driverService';
+import {
+  getCurrentDriverShift,
+  updateDriverAvailability,
+  updateDriverLocation,
+} from '../../services/driverService';
 import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
 import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
@@ -32,7 +37,7 @@ const DEFAULT_REGION = {
 };
 
 export const DashboardScreen: React.FC = () => {
-  const { user, toggleOnlineStatus, isOnline, accessToken, hasHydrated } = useAuth();
+  const { user, isOnline, accessToken, hasHydrated, setOnlineStatus } = useAuth();
 
   const formattedName = (user?.name || user?.email || 'Driver').toUpperCase();
   const [userRegion, setUserRegion] = useState<Region | null>(null);
@@ -56,6 +61,9 @@ export const DashboardScreen: React.FC = () => {
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
   const [currentShift, setCurrentShift] = useState<DriverShift | null>(null);
   const [shiftDuration, setShiftDuration] = useState<string>('00:00:00');
+  const [isUpdatingShift, setIsUpdatingShift] = useState<boolean>(false);
+  const hasActiveShift =
+    currentShift?.status === DriverShiftStatus.ACTIVE && Boolean(currentShift.startedAt);
   const goPulse = useRef(new Animated.Value(0)).current;
   const instes = useSafeAreaInsets();
 
@@ -324,6 +332,85 @@ export const DashboardScreen: React.FC = () => {
     };
   }, [currentShift]);
 
+  const handleStartShift = useCallback(async () => {
+    if (isUpdatingShift) {
+      return;
+    }
+
+    setIsUpdatingShift(true);
+
+    try {
+      const shift = await updateDriverAvailability({ available: true });
+
+      setCurrentShift(shift);
+      setOnlineStatus(true);
+    } catch (error) {
+      console.warn('[Dashboard] Failed to start shift', error);
+      Alert.alert('Unable to start shift', 'Please try again in a moment.');
+    } finally {
+      setIsUpdatingShift(false);
+    }
+  }, [isUpdatingShift, setOnlineStatus, updateDriverAvailability]);
+
+  const handleToggleOnline = useCallback(
+    async (nextValue: boolean) => {
+      if (isUpdatingShift) {
+        return;
+      }
+
+      if (nextValue) {
+        setOnlineStatus(true);
+        return;
+      }
+
+      if (!hasActiveShift) {
+        setOnlineStatus(false);
+        return;
+      }
+
+      const finishableAt = currentShift?.finishableAt
+        ? new Date(currentShift.finishableAt)
+        : null;
+
+      if (finishableAt && !Number.isNaN(finishableAt.getTime())) {
+        const now = Date.now();
+
+        if (now < finishableAt.getTime()) {
+          const timeString = finishableAt.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+
+          Alert.alert('Shift in progress', `You can end your shift at ${timeString}.`);
+          setOnlineStatus(true);
+          return;
+        }
+      }
+
+      setIsUpdatingShift(true);
+
+      try {
+        const shift = await updateDriverAvailability({ available: false });
+
+        setCurrentShift(shift);
+        setOnlineStatus(false);
+      } catch (error) {
+        console.warn('[Dashboard] Failed to end shift', error);
+        Alert.alert('Unable to end shift', 'Please try again in a moment.');
+        setOnlineStatus(true);
+      } finally {
+        setIsUpdatingShift(false);
+      }
+    },
+    [
+      currentShift?.finishableAt,
+      hasActiveShift,
+      isUpdatingShift,
+      setOnlineStatus,
+      updateDriverAvailability,
+    ],
+  );
+
   const handleAcceptOrder = useCallback(() => {
     setIncomingOrderVisible(false);
     setOngoingOrderVisible(true);
@@ -409,8 +496,11 @@ export const DashboardScreen: React.FC = () => {
     outputRange: [0.2, 0.45],
   });
 
-  const hasActiveShift =
-    currentShift?.status === DriverShiftStatus.ACTIVE && Boolean(currentShift.startedAt);
+  useEffect(() => {
+    if (hasActiveShift && !isOnline) {
+      setOnlineStatus(true);
+    }
+  }, [hasActiveShift, isOnline, setOnlineStatus]);
 
   return (
     <View style={styles.safeArea}>
@@ -481,7 +571,12 @@ export const DashboardScreen: React.FC = () => {
                 />
               ) : (
                 !hasActiveShift && (
-                  <TouchableOpacity activeOpacity={0.85} style={styles.goWrapper}>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    style={styles.goWrapper}
+                    onPress={handleStartShift}
+                    disabled={isUpdatingShift}
+                  >
                     <Animated.View
                       pointerEvents="none"
                       style={[
@@ -520,9 +615,10 @@ export const DashboardScreen: React.FC = () => {
             </Text>
             <Switch
               value={isOnline}
-              onValueChange={toggleOnlineStatus}
+              onValueChange={handleToggleOnline}
               trackColor={{ false: '#E5E7EB', true: '#CA251B' }}
               thumbColor={isOnline ? '#ffffff' : undefined}
+              disabled={isUpdatingShift}
             />
           </View>
         </View>

@@ -21,6 +21,7 @@ export type AuthState = {
   setHydrated: (value: boolean) => void;
   logout: () => void;
   toggleOnlineStatus: () => void;
+  setOnlineStatus: (value: boolean) => void;
 };
 
 const inMemoryStorage: MemoryStore = {};
@@ -134,6 +135,7 @@ export const useAuthStore = create<AuthState>(
           hasHydrated: true,
         })),
       toggleOnlineStatus: () => set((state) => ({ isOnline: !state.isOnline })),
+      setOnlineStatus: (value: boolean) => set(() => ({ isOnline: value })),
     }),
     {
       name: 'foodify-driver-auth',
