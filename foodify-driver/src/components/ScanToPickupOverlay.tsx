@@ -78,7 +78,7 @@ export const ScanToPickupOverlay: React.FC<ScanToPickupOverlayProps> = ({
   return (
     <Modal animationType="fade" transparent visible>
       <View style={StyleSheet.absoluteFill}>
-      <PlatformBlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
+        <PlatformBlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
 
         <View style={styles.container}>
           <View style={styles.cameraCard}>

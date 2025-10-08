@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Animated,
+  AppState,
+  AppStateStatus,
   Easing,
+  Linking,
   StyleSheet,
   Switch,
   Text,
@@ -18,7 +21,10 @@ import { PlatformBlurView } from '../../components/PlatformBlurView';
 
 import { useAuth } from '../../contexts/AuthContext';
 import {
+  confirmOrderDelivery,
+  getDriverOngoingOrder,
   getCurrentDriverShift,
+  markOrderAsPickedUp,
   updateDriverAvailability,
   updateDriverLocation,
 } from '../../services/driverService';
@@ -26,8 +32,11 @@ import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
 import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
 import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
+import { ConfirmDeliveryOverlay } from '../../components/ConfirmDeliveryOverlay';
+import { ActionResultModal } from '../../components/ActionResultModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DriverShift, DriverShiftStatus } from '../../types/shift';
+import { OrderDto, OrderStatus } from '../../types/order';
 
 const parseShiftDate = (value: string | null | undefined): Date | null => {
   if (!value) {
@@ -85,6 +94,34 @@ const DEFAULT_REGION = {
   longitudeDelta: 0.025,
 };
 
+const EMPTY_ONGOING_ORDER_PLACEHOLDER: OrderDto = {
+  id: 0,
+  restaurantName: null,
+  restaurantId: null,
+  restaurantAddress: null,
+  restaurantLocation: null,
+  restaurantPhone: null,
+  clientId: null,
+  clientName: null,
+  clientPhone: null,
+  clientAddress: null,
+  clientLocation: null,
+  savedAddress: null,
+  total: null,
+  status: OrderStatus.ACCEPTED,
+  createdAt: null,
+  items: [],
+  driverId: null,
+  driverName: null,
+  driverPhone: null,
+  estimatedPickUpTime: null,
+  estimatedDeliveryTime: null,
+  driverAssignedAt: null,
+  pickedUpAt: null,
+  deliveredAt: null,
+  upcoming: false,
+};
+
 export const DashboardScreen: React.FC = () => {
   const { user, isOnline, accessToken, hasHydrated, setOnlineStatus } = useAuth();
 
@@ -105,9 +142,23 @@ export const DashboardScreen: React.FC = () => {
   );
   const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
+  const [ongoingOrder, setOngoingOrder] = useState<OrderDto | null>(null);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
+  const [isConfirmDeliveryOverlayVisible, setConfirmDeliveryOverlayVisible] =
+    useState<boolean>(false);
+  const [isProcessingPickup, setIsProcessingPickup] = useState<boolean>(false);
+  const [isProcessingDelivery, setIsProcessingDelivery] = useState<boolean>(false);
+  const [resultModal, setResultModal] = useState<
+    | {
+        status: 'success' | 'error';
+        title: string;
+        message: string;
+        onAfterClose?: () => void;
+      }
+    | null
+  >(null);
   const [currentShift, setCurrentShift] = useState<DriverShift | null>(null);
   const [isUpdatingShift, setIsUpdatingShift] = useState<boolean>(false);
   const hasActiveShift =
@@ -116,6 +167,40 @@ export const DashboardScreen: React.FC = () => {
   const instes = useSafeAreaInsets();
   const shiftUpdateSequenceRef = useRef(0);
   const isMountedRef = useRef(true);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState as AppStateStatus);
+  const ongoingOrderRequestIdRef = useRef(0);
+
+  const ongoingStatus = ongoingOrder?.status ?? null;
+  const shouldCallRestaurant = useMemo(
+    () =>
+      ongoingStatus === OrderStatus.PREPARING ||
+      ongoingStatus === OrderStatus.READY_FOR_PICK_UP,
+    [ongoingStatus],
+  );
+
+  const callLabel = shouldCallRestaurant ? 'Call Restaurant' : 'Call Client';
+  const callPhone = shouldCallRestaurant
+    ? ongoingOrder?.restaurantPhone
+    : ongoingOrder?.clientPhone;
+  const isCallDisabled = !callPhone;
+
+  const isScanToPickupVisible = ongoingStatus === OrderStatus.READY_FOR_PICK_UP;
+  const isConfirmDeliveryVisible = ongoingStatus === OrderStatus.IN_DELIVERY;
+
+  const scanAvailabilityRef = useRef(isScanToPickupVisible);
+  const confirmAvailabilityRef = useRef(isConfirmDeliveryVisible);
+
+  const navigationTarget = useMemo(() => {
+    if (!ongoingOrder) {
+      return null;
+    }
+
+    if (ongoingStatus === OrderStatus.IN_DELIVERY) {
+      return { label: 'client' as const, location: ongoingOrder.clientLocation };
+    }
+
+    return { label: 'restaurant' as const, location: ongoingOrder.restaurantLocation };
+  }, [ongoingOrder, ongoingStatus]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -124,6 +209,24 @@ export const DashboardScreen: React.FC = () => {
       isMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    const hasOrder = Boolean(ongoingOrder);
+
+    setOngoingOrderVisible(hasOrder);
+
+    if (hasOrder) {
+      setIncomingOrderVisible(false);
+    }
+  }, [ongoingOrder]);
+
+  useEffect(() => {
+    scanAvailabilityRef.current = isScanToPickupVisible;
+  }, [isScanToPickupVisible]);
+
+  useEffect(() => {
+    confirmAvailabilityRef.current = isConfirmDeliveryVisible;
+  }, [isConfirmDeliveryVisible]);
 
   const applyShiftUpdate = useCallback(
     (shift: DriverShift | null, expectedSequence?: number) => {
@@ -206,6 +309,58 @@ export const DashboardScreen: React.FC = () => {
   useEffect(() => {
     sendLocationUpdateRef.current = sendLocationUpdate;
   }, [sendLocationUpdate]);
+
+  const syncOngoingOrder = useCallback(async () => {
+    ongoingOrderRequestIdRef.current += 1;
+    const requestId = ongoingOrderRequestIdRef.current;
+
+    if (!hasHydrated || !accessToken) {
+      if (isMountedRef.current && requestId === ongoingOrderRequestIdRef.current) {
+        setOngoingOrder(null);
+      }
+      return;
+    }
+
+    try {
+      const order = await getDriverOngoingOrder();
+
+      if (!isMountedRef.current || requestId !== ongoingOrderRequestIdRef.current) {
+        return;
+      }
+
+      setOngoingOrder(order);
+    } catch (error) {
+      console.warn('[Dashboard] Failed to fetch ongoing order', error);
+    }
+  }, [accessToken, hasHydrated]);
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    void syncOngoingOrder();
+  }, [hasHydrated, syncOngoingOrder]);
+
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextAppState;
+
+      if (
+        (previousState === 'inactive' || previousState === 'background') &&
+        nextAppState === 'active'
+      ) {
+        void syncOngoingOrder();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [syncOngoingOrder]);
 
   const fetchShift = useCallback(async (): Promise<DriverShift | null | undefined> => {
     try {
@@ -484,30 +639,179 @@ export const DashboardScreen: React.FC = () => {
 
   const handleAcceptOrder = useCallback(() => {
     setIncomingOrderVisible(false);
-    setOngoingOrderVisible(true);
+    setOngoingOrder((current) => current ?? EMPTY_ONGOING_ORDER_PLACEHOLDER);
   }, []);
 
   const handleDeclineOrder = useCallback(() => {
     setIncomingOrderVisible(false);
-    setOngoingOrderVisible(false);
+    setOngoingOrder(null);
   }, []);
 
-  const handleCallRestaurant = useCallback(() => {
-    console.log('Call Restaurant pressed');
-  }, []);
+  const callTargetLabel = shouldCallRestaurant ? 'restaurant' : 'client';
+
+  const handleCallContact = useCallback(async () => {
+    if (!callPhone) {
+      Alert.alert(
+        'Contact unavailable',
+        `The ${callTargetLabel} phone number is not available for this order yet.`,
+      );
+      return;
+    }
+
+    const telUrl = `tel:${callPhone}`;
+
+    try {
+      const canOpen = await Linking.canOpenURL(telUrl);
+
+      if (!canOpen) {
+        Alert.alert('Unable to place call', 'Phone calls are not supported on this device.');
+        return;
+      }
+
+      await Linking.openURL(telUrl);
+    } catch (error) {
+      console.warn('[Dashboard] Failed to open phone dialer', error);
+      Alert.alert('Unable to place call', 'Please try again in a moment.');
+    }
+  }, [callPhone, callTargetLabel]);
 
   const handleSeeOrderDetails = useCallback(() => {
     console.log('See order details pressed');
     setOrderDetailsVisible(true);
   }, []);
 
-  const handleLookForDirection = useCallback(() => {
-    console.log('Look for direction pressed');
-  }, []);
+  const handleLookForDirection = useCallback(async () => {
+    if (!navigationTarget) {
+      Alert.alert(
+        'Directions unavailable',
+        'Location details are not available for this order yet.',
+      );
+      return;
+    }
+
+    const { location, label } = navigationTarget;
+    if (!location) {
+      Alert.alert(
+        'Directions unavailable',
+        `The ${label} location is not available for this order yet.`,
+      );
+      return;
+    }
+    const coordinates = `${location.lat},${location.lng}`;
+    const nativeUrl = `comgooglemaps://?daddr=${coordinates}&directionsmode=driving`;
+    const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${coordinates}`;
+
+    try {
+      const canOpenNative = await Linking.canOpenURL(nativeUrl);
+
+      if (canOpenNative) {
+        await Linking.openURL(nativeUrl);
+        return;
+      }
+
+      await Linking.openURL(fallbackUrl);
+    } catch (error) {
+      console.warn('[Dashboard] Failed to open maps', error);
+      Alert.alert(
+        'Unable to open Google Maps',
+        `Please try again in a moment. The ${label} location could not be opened.`,
+      );
+    }
+  }, [navigationTarget]);
 
   const handleScanToPickup = useCallback(() => {
+    if (!isScanToPickupVisible) {
+      return;
+    }
+
     setScanOverlayVisible(true);
+  }, [isScanToPickupVisible]);
+
+  const handleOpenConfirmDelivery = useCallback(() => {
+    if (!isConfirmDeliveryVisible) {
+      return;
+    }
+
+    setConfirmDeliveryOverlayVisible(true);
+  }, [isConfirmDeliveryVisible]);
+
+  const handleCloseConfirmDelivery = useCallback(() => {
+    setConfirmDeliveryOverlayVisible(false);
   }, []);
+
+  const handleCloseResultModal = useCallback(() => {
+    setResultModal((previous) => {
+      previous?.onAfterClose?.();
+      return null;
+    });
+  }, []);
+
+  const handleSubmitDeliveryCode = useCallback(
+    async (code: string) => {
+      if (isProcessingDelivery) {
+        return;
+      }
+
+      const orderId = ongoingOrder?.id;
+
+      if (!orderId) {
+        setConfirmDeliveryOverlayVisible(false);
+        setResultModal({
+          status: 'error',
+          title: 'Incorrect Code !',
+          message: 'Please verify the confirmation code and try again.',
+        });
+        return;
+      }
+
+      setIsProcessingDelivery(true);
+
+      try {
+        const isDelivered = await confirmOrderDelivery({
+          orderId,
+          token: code,
+        });
+
+        setConfirmDeliveryOverlayVisible(false);
+
+        if (isDelivered) {
+          setResultModal({
+            status: 'success',
+            title: 'Correct Code !',
+            message: 'The delivery has been confirmed successfully.',
+          });
+          await syncOngoingOrder();
+        } else {
+          setResultModal({
+            status: 'error',
+            title: 'Incorrect Code !',
+            message: 'Please verify the confirmation code and try again.',
+            onAfterClose: () => {
+              if (confirmAvailabilityRef.current) {
+                setConfirmDeliveryOverlayVisible(true);
+              }
+            },
+          });
+        }
+      } catch (error) {
+        console.warn('[Dashboard] Failed to confirm delivery', error);
+        setConfirmDeliveryOverlayVisible(false);
+        setResultModal({
+          status: 'error',
+          title: 'Incorrect Code !',
+          message: 'Please verify the confirmation code and try again.',
+          onAfterClose: () => {
+            if (confirmAvailabilityRef.current) {
+              setConfirmDeliveryOverlayVisible(true);
+            }
+          },
+        });
+      } finally {
+        setIsProcessingDelivery(false);
+      }
+    },
+    [isProcessingDelivery, ongoingOrder?.id, syncOngoingOrder],
+  );
 
   const handleCloseOrderDetails = useCallback(() => {
     setOrderDetailsVisible(false);
@@ -517,10 +821,64 @@ export const DashboardScreen: React.FC = () => {
     setScanOverlayVisible(false);
   }, []);
 
-  const handleQRCodeScanned = useCallback((result: BarcodeScanningResult) => {
-    console.log('QR code scanned:', result.data);
-    setScanOverlayVisible(false);
-  }, []);
+  const handleQRCodeScanned = useCallback(
+    async (result: BarcodeScanningResult) => {
+      if (isProcessingPickup) {
+        return;
+      }
+
+      const orderId = ongoingOrder?.id;
+      const token = typeof result.data === 'string' ? result.data.trim() : '';
+
+      setIsProcessingPickup(true);
+      setScanOverlayVisible(false);
+
+      if (!orderId || !token) {
+        setResultModal({
+          status: 'error',
+          title: 'Incorrect QR Code !',
+          message: 'Please check your order again',
+          onAfterClose: () => {
+            if (scanAvailabilityRef.current) {
+              setScanOverlayVisible(true);
+            }
+          },
+        });
+        setIsProcessingPickup(false);
+        return;
+      }
+
+      try {
+        await markOrderAsPickedUp({
+          orderId,
+          token,
+        });
+
+        setResultModal({
+          status: 'success',
+          title: 'Correct QR Code !',
+          message: 'You can pick up your order',
+        });
+
+        await syncOngoingOrder();
+      } catch (error) {
+        console.warn('[Dashboard] Failed to mark order as picked up', error);
+        setResultModal({
+          status: 'error',
+          title: 'Incorrect QR Code !',
+          message: 'Please check your order again',
+          onAfterClose: () => {
+            if (scanAvailabilityRef.current) {
+              setScanOverlayVisible(true);
+            }
+          },
+        });
+      } finally {
+        setIsProcessingPickup(false);
+      }
+    },
+    [isProcessingPickup, ongoingOrder?.id, syncOngoingOrder],
+  );
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -640,10 +998,15 @@ export const DashboardScreen: React.FC = () => {
               )}
               {isOngoingOrderVisible ? (
                 <OngoingOrderBanner
-                  onCallRestaurant={handleCallRestaurant}
+                  callLabel={callLabel}
+                  isCallDisabled={isCallDisabled}
+                  onCallContact={handleCallContact}
                   onSeeOrderDetails={handleSeeOrderDetails}
                   onLookForDirection={handleLookForDirection}
                   onScanToPickup={handleScanToPickup}
+                  isScanToPickupVisible={isScanToPickupVisible}
+                  onConfirmDelivery={handleOpenConfirmDelivery}
+                  isConfirmDeliveryVisible={isConfirmDeliveryVisible}
                 />
               ) : (
                 !hasActiveShift && (
@@ -724,6 +1087,21 @@ export const DashboardScreen: React.FC = () => {
             visible={isScanOverlayVisible}
           />
         )}
+        {isConfirmDeliveryOverlayVisible && (
+          <ConfirmDeliveryOverlay
+            onClose={handleCloseConfirmDelivery}
+            onSubmit={handleSubmitDeliveryCode}
+            visible={isConfirmDeliveryOverlayVisible}
+            isSubmitting={isProcessingDelivery}
+          />
+        )}
+        <ActionResultModal
+          visible={Boolean(resultModal)}
+          status={resultModal?.status ?? 'success'}
+          title={resultModal?.title ?? ''}
+          message={resultModal?.message ?? ''}
+          onClose={handleCloseResultModal}
+        />
       </View>
     </View>
   );

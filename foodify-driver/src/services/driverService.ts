@@ -1,5 +1,6 @@
 import { apiClient } from './api';
 import type { DriverShift } from '../types/shift';
+import type { OrderDto } from '../types/order';
 
 type UpdateDriverLocationPayload = {
   driverId: number;
@@ -35,4 +36,66 @@ export const updateDriverAvailability = async (
   const response = await apiClient.post<DriverShift>('/api/driver/updateStatus', payload);
 
   return response.data;
+};
+
+type OngoingOrderApiResponse = { orderDto: OrderDto | null } | OrderDto | null;
+
+export const getDriverOngoingOrder = async (): Promise<OrderDto | null> => {
+  const response = await apiClient.get<OngoingOrderApiResponse>('/api/driver/ongoing-order');
+
+  const data = response.data;
+
+  if (!data) {
+    return null;
+  }
+
+  if (typeof data === 'object' && data !== null && 'orderDto' in data) {
+    const order = (data as { orderDto: OrderDto | null }).orderDto;
+
+    return order ?? null;
+  }
+
+  return data as OrderDto;
+};
+
+type MarkOrderPickedUpPayload = {
+  orderId: number | string;
+  token: string;
+};
+
+type PickupSuccessResponse = { message?: string } | string;
+
+export const markOrderAsPickedUp = async (
+  payload: MarkOrderPickedUpPayload,
+): Promise<string | null> => {
+  const response = await apiClient.post<PickupSuccessResponse>('/api/driver/pickup', {
+    orderId: String(payload.orderId),
+    token: payload.token,
+  });
+
+  const data = response.data;
+
+  if (typeof data === 'string') {
+    return data;
+  }
+
+  if (data && typeof data === 'object' && 'message' in data && typeof data.message === 'string') {
+    return data.message;
+  }
+
+  return null;
+};
+
+type ConfirmDeliveryPayload = {
+  orderId: number | string;
+  token: string;
+};
+
+export const confirmOrderDelivery = async (payload: ConfirmDeliveryPayload): Promise<boolean> => {
+  const response = await apiClient.post<boolean>('/api/driver/deliver-order', {
+    orderId: payload.orderId,
+    token: payload.token,
+  });
+
+  return response.data === true;
 };
