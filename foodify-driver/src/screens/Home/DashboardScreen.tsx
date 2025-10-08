@@ -17,6 +17,7 @@ import { BarcodeScanningResult } from 'expo-camera';
 import { PlatformBlurView } from '../../components/PlatformBlurView';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { useWebSocketContext } from '../../contexts/WebSocketContext';
 import {
   getCurrentDriverShift,
   updateDriverAvailability,
@@ -103,7 +104,7 @@ export const DashboardScreen: React.FC = () => {
       longitudeDelta: DEFAULT_REGION.longitudeDelta,
     }),
   );
-  const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
+  const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(false);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
@@ -116,6 +117,7 @@ export const DashboardScreen: React.FC = () => {
   const instes = useSafeAreaInsets();
   const shiftUpdateSequenceRef = useRef(0);
   const isMountedRef = useRef(true);
+  const { incomingOrder, clearIncomingOrder } = useWebSocketContext();
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -124,6 +126,16 @@ export const DashboardScreen: React.FC = () => {
       isMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (incomingOrder?.upcoming) {
+      setIncomingOrderVisible(true);
+      setIncomingCountdown(89);
+      return;
+    }
+
+    setIncomingOrderVisible(false);
+  }, [incomingOrder]);
 
   const applyShiftUpdate = useCallback(
     (shift: DriverShift | null, expectedSequence?: number) => {
@@ -485,12 +497,14 @@ export const DashboardScreen: React.FC = () => {
   const handleAcceptOrder = useCallback(() => {
     setIncomingOrderVisible(false);
     setOngoingOrderVisible(true);
-  }, []);
+    clearIncomingOrder();
+  }, [clearIncomingOrder]);
 
   const handleDeclineOrder = useCallback(() => {
     setIncomingOrderVisible(false);
     setOngoingOrderVisible(false);
-  }, []);
+    clearIncomingOrder();
+  }, [clearIncomingOrder]);
 
   const handleCallRestaurant = useCallback(() => {
     console.log('Call Restaurant pressed');
@@ -1036,3 +1050,4 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
 });
+

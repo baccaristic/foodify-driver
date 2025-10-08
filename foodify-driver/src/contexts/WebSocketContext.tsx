@@ -16,6 +16,8 @@ import { OrderDto } from '../types/order';
 
 interface WebSocketContextValue {
   isConnected: boolean;
+  incomingOrder: OrderDto | null;
+  clearIncomingOrder: () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | undefined>(undefined);
@@ -24,6 +26,7 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
   const { accessToken, user } = useAuth();
   const clientRef = useRef<Client | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [incomingOrder, setIncomingOrder] = useState<OrderDto | null>(null);
 
 
 
@@ -34,6 +37,7 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
         clientRef.current = null;
       }
       setIsConnected(false);
+      setIncomingOrder(null);
       return;
     }
 
@@ -63,10 +67,11 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
           const data = JSON.parse(message.body) as OrderDto;
           console.log('📦 Received order update:', data);
           if (data.upcoming) {
-            console.log("This is an upcoming order we should display the overlay")
-          }
-          else {
-            console.log("This means we are in an ongoing order and the order status changed");
+            console.log('This is an upcoming order we should display the overlay');
+            setIncomingOrder(data);
+          } else {
+            console.log('This means we are in an ongoing order and the order status changed');
+            setIncomingOrder(null);
           }
         } catch {
           console.warn('Received non-JSON message from /user/queue/orders:', message.body);
@@ -77,6 +82,7 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
     stompClient.onDisconnect = () => {
       console.log('❌ STOMP disconnected');
       setIsConnected(false);
+      setIncomingOrder(null);
     };
 
     stompClient.onStompError = (frame) => {
@@ -90,13 +96,21 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
       stompClient.deactivate();
       clientRef.current = null;
       setIsConnected(false);
+      setIncomingOrder(null);
     };
   }, [accessToken, user?.id]);
+
+  const clearIncomingOrder = useCallback(() => {
+    setIncomingOrder(null);
+  }, []);
+
   const value = useMemo<WebSocketContextValue>(
     () => ({
       isConnected,
+      incomingOrder,
+      clearIncomingOrder,
     }),
-    [isConnected],
+    [clearIncomingOrder, incomingOrder, isConnected],
   );
 
   return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>;
