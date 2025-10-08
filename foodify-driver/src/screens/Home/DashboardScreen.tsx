@@ -147,7 +147,7 @@ export const DashboardScreen: React.FC = () => {
       longitudeDelta: DEFAULT_REGION.longitudeDelta,
     }),
   );
-  const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
+  const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(false);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [ongoingOrder, setOngoingOrder] = useState<OrderDto | null>(null);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
@@ -1376,6 +1376,7 @@ const styles = StyleSheet.create({
   footer: {
     backgroundColor: '#ffffff',
     paddingHorizontal: moderateScale(24),
+    paddingTop: verticalScale(20),
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
