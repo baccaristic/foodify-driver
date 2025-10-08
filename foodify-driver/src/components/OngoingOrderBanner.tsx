@@ -4,28 +4,39 @@ import { ScanLine } from 'lucide-react-native';
 import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 
 export interface OngoingOrderBannerProps {
-  onCallRestaurant?: () => void;
+  callLabel?: string;
+  onCallContact?: () => void;
+  isCallDisabled?: boolean;
   onSeeOrderDetails?: () => void;
   onLookForDirection?: () => void;
   onScanToPickup?: () => void;
+  isScanToPickupVisible?: boolean;
+  onConfirmDelivery?: () => void;
+  isConfirmDeliveryVisible?: boolean;
 }
 
 export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
-  onCallRestaurant,
+  callLabel = 'Call Contact',
+  onCallContact,
+  isCallDisabled = false,
   onSeeOrderDetails,
   onLookForDirection,
   onScanToPickup,
+  isScanToPickupVisible = false,
+  onConfirmDelivery,
+  isConfirmDeliveryVisible = false,
 }) => {
   return (
     <View style={styles.container}>
       <TouchableOpacity
         activeOpacity={0.85}
-        onPress={onCallRestaurant}
-        style={styles.callButton}
+        onPress={onCallContact}
+        style={[styles.callButton, isCallDisabled && styles.callButtonDisabled]}
+        disabled={isCallDisabled}
       >
         <View style={styles.callButtonContent}>
           <Text allowFontScaling={false} style={styles.callLabel}>
-            Call Restaurant
+            {callLabel}
           </Text>
           <Text allowFontScaling={false} style={styles.callIcon}>
             📞
@@ -61,22 +72,36 @@ export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
               Look for direction
             </Text>
           </TouchableOpacity>
+          {isScanToPickupVisible && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={onScanToPickup}
+              style={[styles.secondaryAction, styles.column, styles.scanAction]}
+            >
+              <View style={styles.scanActionContent}>
+                <ScanLine color="#ffffff" size={moderateScale(16)} />
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.secondaryActionLabel, styles.scanActionLabel]}
+                >
+                  Scan to Pickup
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {isConfirmDeliveryVisible && (
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={onScanToPickup}
-            style={[styles.secondaryAction, styles.column, styles.scanAction]}
+            onPress={onConfirmDelivery}
+            style={[styles.secondaryAction, styles.confirmDeliveryAction]}
           >
-            <View style={styles.scanActionContent}>
-              <ScanLine color="#ffffff" size={moderateScale(16)} />
-              <Text
-                allowFontScaling={false}
-                style={[styles.secondaryActionLabel, styles.scanActionLabel]}
-              >
-                Scan to Pickup
-              </Text>
-            </View>
+            <Text allowFontScaling={false} style={styles.secondaryActionLabel}>
+              Confirm delivery code
+            </Text>
           </TouchableOpacity>
-        </View>
+        )}
       </View>
     </View>
   );
@@ -109,6 +134,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: moderateScale(16),
     fontWeight: '600',
+  },
+  callButtonDisabled: {
+    opacity: 0.6,
   },
   callIcon: {
     fontSize: moderateScale(16),
@@ -181,5 +209,8 @@ const styles = StyleSheet.create({
   },
   scanActionLabel: {
     textAlign: 'left',
+  },
+  confirmDeliveryAction: {
+    marginTop: verticalScale(12),
   },
 });

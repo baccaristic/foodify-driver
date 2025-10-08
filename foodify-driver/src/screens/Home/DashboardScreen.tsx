@@ -5,6 +5,7 @@ import {
   AppState,
   AppStateStatus,
   Easing,
+  Linking,
   StyleSheet,
   Switch,
   Text,
@@ -29,6 +30,7 @@ import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
 import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
 import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
+import { ConfirmDeliveryOverlay } from '../../components/ConfirmDeliveryOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DriverShift, DriverShiftStatus } from '../../types/shift';
 import { OrderDto, OrderStatus } from '../../types/order';
@@ -141,6 +143,8 @@ export const DashboardScreen: React.FC = () => {
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
+  const [isConfirmDeliveryOverlayVisible, setConfirmDeliveryOverlayVisible] =
+    useState<boolean>(false);
   const [currentShift, setCurrentShift] = useState<DriverShift | null>(null);
   const [isUpdatingShift, setIsUpdatingShift] = useState<boolean>(false);
   const hasActiveShift =
@@ -151,6 +155,35 @@ export const DashboardScreen: React.FC = () => {
   const isMountedRef = useRef(true);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState as AppStateStatus);
   const ongoingOrderRequestIdRef = useRef(0);
+
+  const ongoingStatus = ongoingOrder?.status ?? null;
+  const shouldCallRestaurant = useMemo(
+    () =>
+      ongoingStatus === OrderStatus.PREPARING ||
+      ongoingStatus === OrderStatus.READY_FOR_PICK_UP,
+    [ongoingStatus],
+  );
+
+  const callLabel = shouldCallRestaurant ? 'Call Restaurant' : 'Call Client';
+  const callPhone = shouldCallRestaurant
+    ? ongoingOrder?.restaurantPhone
+    : ongoingOrder?.clientPhone;
+  const isCallDisabled = !callPhone;
+
+  const isScanToPickupVisible = ongoingStatus === OrderStatus.READY_FOR_PICK_UP;
+  const isConfirmDeliveryVisible = ongoingStatus === OrderStatus.IN_DELIVERY;
+
+  const navigationTarget = useMemo(() => {
+    if (!ongoingOrder) {
+      return null;
+    }
+
+    if (ongoingStatus === OrderStatus.IN_DELIVERY) {
+      return { label: 'client' as const, location: ongoingOrder.clientLocation };
+    }
+
+    return { label: 'restaurant' as const, location: ongoingOrder.restaurantLocation };
+  }, [ongoingOrder, ongoingStatus]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -589,21 +622,101 @@ export const DashboardScreen: React.FC = () => {
     setOngoingOrder(null);
   }, []);
 
-  const handleCallRestaurant = useCallback(() => {
-    console.log('Call Restaurant pressed');
-  }, []);
+  const callTargetLabel = shouldCallRestaurant ? 'restaurant' : 'client';
+
+  const handleCallContact = useCallback(async () => {
+    if (!callPhone) {
+      Alert.alert(
+        'Contact unavailable',
+        `The ${callTargetLabel} phone number is not available for this order yet.`,
+      );
+      return;
+    }
+
+    const telUrl = `tel:${callPhone}`;
+
+    try {
+      const canOpen = await Linking.canOpenURL(telUrl);
+
+      if (!canOpen) {
+        Alert.alert('Unable to place call', 'Phone calls are not supported on this device.');
+        return;
+      }
+
+      await Linking.openURL(telUrl);
+    } catch (error) {
+      console.warn('[Dashboard] Failed to open phone dialer', error);
+      Alert.alert('Unable to place call', 'Please try again in a moment.');
+    }
+  }, [callPhone, callTargetLabel]);
 
   const handleSeeOrderDetails = useCallback(() => {
     console.log('See order details pressed');
     setOrderDetailsVisible(true);
   }, []);
 
-  const handleLookForDirection = useCallback(() => {
-    console.log('Look for direction pressed');
-  }, []);
+  const handleLookForDirection = useCallback(async () => {
+    if (!navigationTarget) {
+      Alert.alert(
+        'Directions unavailable',
+        'Location details are not available for this order yet.',
+      );
+      return;
+    }
+
+    const { location, label } = navigationTarget;
+    if (!location) {
+      Alert.alert(
+        'Directions unavailable',
+        `The ${label} location is not available for this order yet.`,
+      );
+      return;
+    }
+    const coordinates = `${location.lat},${location.lng}`;
+    const nativeUrl = `comgooglemaps://?daddr=${coordinates}&directionsmode=driving`;
+    const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${coordinates}`;
+
+    try {
+      const canOpenNative = await Linking.canOpenURL(nativeUrl);
+
+      if (canOpenNative) {
+        await Linking.openURL(nativeUrl);
+        return;
+      }
+
+      await Linking.openURL(fallbackUrl);
+    } catch (error) {
+      console.warn('[Dashboard] Failed to open maps', error);
+      Alert.alert(
+        'Unable to open Google Maps',
+        `Please try again in a moment. The ${label} location could not be opened.`,
+      );
+    }
+  }, [navigationTarget]);
 
   const handleScanToPickup = useCallback(() => {
+    if (!isScanToPickupVisible) {
+      return;
+    }
+
     setScanOverlayVisible(true);
+  }, [isScanToPickupVisible]);
+
+  const handleOpenConfirmDelivery = useCallback(() => {
+    if (!isConfirmDeliveryVisible) {
+      return;
+    }
+
+    setConfirmDeliveryOverlayVisible(true);
+  }, [isConfirmDeliveryVisible]);
+
+  const handleCloseConfirmDelivery = useCallback(() => {
+    setConfirmDeliveryOverlayVisible(false);
+  }, []);
+
+  const handleSubmitDeliveryCode = useCallback((code: string) => {
+    console.log('Delivery code submitted:', code);
+    setConfirmDeliveryOverlayVisible(false);
   }, []);
 
   const handleCloseOrderDetails = useCallback(() => {
@@ -737,10 +850,15 @@ export const DashboardScreen: React.FC = () => {
               )}
               {isOngoingOrderVisible ? (
                 <OngoingOrderBanner
-                  onCallRestaurant={handleCallRestaurant}
+                  callLabel={callLabel}
+                  isCallDisabled={isCallDisabled}
+                  onCallContact={handleCallContact}
                   onSeeOrderDetails={handleSeeOrderDetails}
                   onLookForDirection={handleLookForDirection}
                   onScanToPickup={handleScanToPickup}
+                  isScanToPickupVisible={isScanToPickupVisible}
+                  onConfirmDelivery={handleOpenConfirmDelivery}
+                  isConfirmDeliveryVisible={isConfirmDeliveryVisible}
                 />
               ) : (
                 !hasActiveShift && (
@@ -819,6 +937,13 @@ export const DashboardScreen: React.FC = () => {
             onClose={handleCloseScanner}
             onScanned={handleQRCodeScanned}
             visible={isScanOverlayVisible}
+          />
+        )}
+        {isConfirmDeliveryOverlayVisible && (
+          <ConfirmDeliveryOverlay
+            onClose={handleCloseConfirmDelivery}
+            onSubmit={handleSubmitDeliveryCode}
+            visible={isConfirmDeliveryOverlayVisible}
           />
         )}
       </View>
