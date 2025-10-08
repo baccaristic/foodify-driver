@@ -10,7 +10,6 @@ import {
   Switch,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { moderateScale, verticalScale } from 'react-native-size-matters';
@@ -38,17 +37,7 @@ import { ActionResultModal } from '../../components/ActionResultModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DriverShift, DriverShiftStatus } from '../../types/shift';
 import { OrderDto, OrderStatus } from '../../types/order';
-import {
-  Bell,
-  Gift,
-  History,
-  Inbox,
-  LogOut,
-  Trash2,
-  User,
-  Wallet,
-  X,
-} from 'lucide-react-native';
+import { DashboardSidebar } from './components/DashboardSidebar';
 
 const parseShiftDate = (value: string | null | undefined): Date | null => {
   if (!value) {
@@ -184,8 +173,6 @@ export const DashboardScreen: React.FC = () => {
   const goPulse = useRef(new Animated.Value(0)).current;
   const instes = useSafeAreaInsets();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isSidebarRendered, setIsSidebarRendered] = useState(false);
-  const sidebarAnimation = useRef(new Animated.Value(0)).current;
   const shiftUpdateSequenceRef = useRef(0);
   const isMountedRef = useRef(true);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState as AppStateStatus);
@@ -962,31 +949,6 @@ export const DashboardScreen: React.FC = () => {
     }
   }, [hasActiveShift, isOnline, setOnlineStatus]);
 
-  useEffect(() => {
-    sidebarAnimation.stopAnimation();
-
-    if (isSidebarOpen) {
-      setIsSidebarRendered(true);
-      Animated.timing(sidebarAnimation, {
-        toValue: 1,
-        duration: 260,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(sidebarAnimation, {
-        toValue: 0,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished && !isSidebarOpen) {
-          setIsSidebarRendered(false);
-        }
-      });
-    }
-  }, [isSidebarOpen, sidebarAnimation]);
-
   const handleOpenSidebar = useCallback(() => {
     setIsSidebarOpen(true);
   }, []);
@@ -994,46 +956,6 @@ export const DashboardScreen: React.FC = () => {
   const handleCloseSidebar = useCallback(() => {
     setIsSidebarOpen(false);
   }, []);
-
-  const noop = useCallback(() => {}, []);
-
-  const sidebarBackdropOpacity = useMemo(
-    () =>
-      sidebarAnimation.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 0.45],
-      }),
-    [sidebarAnimation],
-  );
-
-  const sidebarTranslateX = useMemo(
-    () =>
-      sidebarAnimation.interpolate({
-        inputRange: [0, 1],
-        outputRange: [moderateScale(320), 0],
-      }),
-    [sidebarAnimation],
-  );
-
-  const sidebarQuickActions = useMemo(
-    () => [
-      { label: 'Inbox', Icon: Inbox },
-      { label: 'Payments', Icon: Wallet },
-      { label: 'Rewards', Icon: Gift },
-    ],
-    [],
-  );
-
-  const sidebarMenuItems = useMemo(
-    () => [
-      { label: 'Order history', Icon: History },
-      { label: 'Wallet', Icon: Wallet },
-      { label: 'Profile', Icon: User },
-      { label: 'Notifications', Icon: Bell },
-      { label: 'Delete account & Data', Icon: Trash2 },
-    ],
-    [],
-  );
 
   return (
     <View style={styles.safeArea}>
@@ -1203,92 +1125,15 @@ export const DashboardScreen: React.FC = () => {
           message={resultModal?.message ?? ''}
           onClose={handleCloseResultModal}
         />
-        {isSidebarRendered && (
-          <View pointerEvents="box-none" style={styles.sidebarOverlay}>
-            <TouchableWithoutFeedback onPress={handleCloseSidebar}>
-              <Animated.View style={[styles.sidebarBackdrop, { opacity: sidebarBackdropOpacity }]} />
-            </TouchableWithoutFeedback>
-            <Animated.View
-              style={[
-                styles.sidebarContainer,
-                {
-                  paddingTop: instes.top + verticalScale(24),
-                  paddingBottom: instes.bottom + verticalScale(28),
-                  transform: [{ translateX: sidebarTranslateX }],
-                },
-              ]}
-            >
-              <View style={styles.sidebarTopSection}>
-                <View style={styles.sidebarHeaderRow}>
-                  <View style={styles.sidebarHeaderTextGroup}>
-                    <Text allowFontScaling={false} style={styles.sidebarGreeting}>
-                      Hello, {friendlyName}
-                    </Text>
-                    <Text allowFontScaling={false} style={styles.sidebarShiftText}>
-                      {hasActiveShift && shiftStatusMessage
-                        ? shiftStatusMessage
-                        : 'Ready to work ?'}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    activeOpacity={0.75}
-                    onPress={handleCloseSidebar}
-                    style={styles.sidebarCloseButton}
-                  >
-                    <X color="#ffffff" size={moderateScale(22)} strokeWidth={2.2} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.sidebarQuickRow}>
-                  {sidebarQuickActions.map(({ label, Icon }) => (
-                    <TouchableOpacity
-                      key={label}
-                      activeOpacity={0.85}
-                      style={styles.sidebarQuickItem}
-                      onPress={noop}
-                    >
-                      <View style={styles.sidebarQuickIconCircle}>
-                        <Icon color="#CA251B" size={moderateScale(22)} strokeWidth={2.2} />
-                      </View>
-                      <Text allowFontScaling={false} style={styles.sidebarQuickLabel}>
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.sidebarContent}>
-                <View style={styles.sidebarMenuSection}>
-                  {sidebarMenuItems.map(({ label, Icon }) => (
-                    <TouchableOpacity
-                      key={label}
-                      activeOpacity={0.75}
-                      style={styles.sidebarMenuItem}
-                      onPress={noop}
-                    >
-                      <Icon color="#CA251B" size={moderateScale(20)} strokeWidth={2.1} />
-                      <Text allowFontScaling={false} style={styles.sidebarMenuLabel}>
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  style={styles.sidebarLogoutButton}
-                  onPress={noop}
-                >
-                  <Text allowFontScaling={false} style={styles.sidebarLogoutLabel}>
-                    Logout
-                  </Text>
-                  <LogOut color="#ffffff" size={moderateScale(20)} strokeWidth={2.2} />
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          </View>
-        )}
+        <DashboardSidebar
+          visible={isSidebarOpen}
+          friendlyName={friendlyName}
+          hasActiveShift={hasActiveShift}
+          shiftStatusMessage={shiftStatusMessage}
+          topInset={instes.top}
+          bottomInset={instes.bottom}
+          onClose={handleCloseSidebar}
+        />
       </View>
     </View>
   );
@@ -1581,128 +1426,5 @@ const styles = StyleSheet.create({
   },
   blurOverlay: {
     ...StyleSheet.absoluteFillObject,
-  },
-  sidebarOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 30,
-  },
-  sidebarBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0F172A',
-  },
-  sidebarContainer: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    right: 0,
-    width: moderateScale(300),
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: moderateScale(28),
-    borderBottomLeftRadius: moderateScale(28),
-    overflow: 'hidden',
-    elevation: moderateScale(14),
-    shadowColor: 'rgba(15, 23, 42, 0.28)',
-    shadowOffset: { width: -moderateScale(8), height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: moderateScale(18),
-  },
-  sidebarTopSection: {
-    backgroundColor: '#CA251B',
-    paddingHorizontal: moderateScale(24),
-    paddingBottom: verticalScale(28),
-  },
-  sidebarHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  sidebarHeaderTextGroup: {
-    flex: 1,
-    paddingRight: moderateScale(12),
-  },
-  sidebarGreeting: {
-    color: '#ffffff',
-    fontSize: moderateScale(20),
-    fontWeight: '700',
-    letterSpacing: moderateScale(0.4),
-  },
-  sidebarShiftText: {
-    marginTop: verticalScale(8),
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: moderateScale(14),
-    lineHeight: moderateScale(18),
-  },
-  sidebarCloseButton: {
-    width: moderateScale(36),
-    height: moderateScale(36),
-    borderRadius: moderateScale(18),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-  },
-  sidebarQuickRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: verticalScale(24),
-  },
-  sidebarQuickItem: {
-    alignItems: 'center',
-    flex: 1,
-    paddingHorizontal: moderateScale(6),
-  },
-  sidebarQuickIconCircle: {
-    width: moderateScale(56),
-    height: moderateScale(56),
-    borderRadius: moderateScale(28),
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sidebarQuickLabel: {
-    marginTop: verticalScale(10),
-    color: '#ffffff',
-    fontSize: moderateScale(13),
-    fontWeight: '600',
-  },
-  sidebarContent: {
-    flex: 1,
-    paddingHorizontal: moderateScale(24),
-    paddingTop: verticalScale(24),
-    backgroundColor: '#ffffff',
-    justifyContent: 'space-between',
-  },
-  sidebarMenuSection: {
-    borderRadius: moderateScale(20),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E5E7EB',
-    paddingVertical: verticalScale(6),
-  },
-  sidebarMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: verticalScale(12),
-    paddingHorizontal: moderateScale(12),
-  },
-  sidebarMenuLabel: {
-    marginLeft: moderateScale(12),
-    fontSize: moderateScale(15),
-    color: '#1F2937',
-    fontWeight: '600',
-  },
-  sidebarLogoutButton: {
-    marginTop: verticalScale(24),
-    backgroundColor: '#CA251B',
-    borderRadius: moderateScale(28),
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: verticalScale(14),
-    paddingHorizontal: moderateScale(20),
-  },
-  sidebarLogoutLabel: {
-    color: '#ffffff',
-    fontSize: moderateScale(15),
-    fontWeight: '700',
-    letterSpacing: moderateScale(0.3),
   },
 });
