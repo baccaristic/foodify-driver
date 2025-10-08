@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import type { DriverShift } from '../types/shift';
 
 type UpdateDriverLocationPayload = {
   driverId: number;
@@ -16,4 +17,22 @@ export const updateDriverLocation = async ({
     latitude,
     longitude,
   });
+};
+
+export const getCurrentDriverShift = async (): Promise<DriverShift | null> => {
+  const response = await apiClient.get<DriverShift | null>('/api/driver/shift');
+
+  return response.data;
+};
+
+type UpdateDriverAvailabilityPayload = {
+  available: boolean;
+};
+
+export const updateDriverAvailability = async (
+  payload: UpdateDriverAvailabilityPayload,
+): Promise<DriverShift> => {
+  const response = await apiClient.post<DriverShift>('/api/driver/updateStatus', payload);
+
+  return response.data;
 };

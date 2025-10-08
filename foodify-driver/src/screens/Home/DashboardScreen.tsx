@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
   Easing,
   StyleSheet,
@@ -16,12 +17,66 @@ import { BarcodeScanningResult } from 'expo-camera';
 import { PlatformBlurView } from '../../components/PlatformBlurView';
 
 import { useAuth } from '../../contexts/AuthContext';
-import { updateDriverLocation } from '../../services/driverService';
+import {
+  getCurrentDriverShift,
+  updateDriverAvailability,
+  updateDriverLocation,
+} from '../../services/driverService';
 import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
 import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
 import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DriverShift, DriverShiftStatus } from '../../types/shift';
+
+const parseShiftDate = (value: string | null | undefined): Date | null => {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  const directDate = new Date(trimmed);
+
+  if (!Number.isNaN(directDate.getTime())) {
+    return directDate;
+  }
+
+  const normalized = trimmed.includes('T')
+    ? trimmed
+    : trimmed.replace(' ', 'T');
+  const withTimezone = /[zZ]|[+-]\d\d:?\d\d$/.test(normalized)
+    ? normalized
+    : `${normalized}Z`;
+  const zonedDate = new Date(withTimezone);
+
+  if (!Number.isNaN(zonedDate.getTime())) {
+    return zonedDate;
+  }
+
+  const localMatch = normalized.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(\.(\d+))?)?$/,
+  );
+
+  if (!localMatch) {
+    return null;
+  }
+
+  const [, year, month, day, hours, minutes, seconds = '0', , fractionalSeconds] = localMatch;
+  const milliseconds = fractionalSeconds
+    ? Math.floor(Number((fractionalSeconds + '000').slice(0, 3)))
+    : 0;
+
+  return new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hours),
+    Number(minutes),
+    Number(seconds),
+    milliseconds,
+  );
+};
 
 const DEFAULT_REGION = {
   latitude: 47.5726,
@@ -31,7 +86,7 @@ const DEFAULT_REGION = {
 };
 
 export const DashboardScreen: React.FC = () => {
-  const { user, toggleOnlineStatus, isOnline } = useAuth();
+  const { user, isOnline, accessToken, hasHydrated, setOnlineStatus } = useAuth();
 
   const formattedName = (user?.name || user?.email || 'Driver').toUpperCase();
   const [userRegion, setUserRegion] = useState<Region | null>(null);
@@ -53,8 +108,41 @@ export const DashboardScreen: React.FC = () => {
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
+  const [currentShift, setCurrentShift] = useState<DriverShift | null>(null);
+  const [isUpdatingShift, setIsUpdatingShift] = useState<boolean>(false);
+  const hasActiveShift =
+    currentShift?.status === DriverShiftStatus.ACTIVE && Boolean(currentShift.startedAt);
   const goPulse = useRef(new Animated.Value(0)).current;
   const instes = useSafeAreaInsets();
+  const shiftUpdateSequenceRef = useRef(0);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const applyShiftUpdate = useCallback(
+    (shift: DriverShift | null, expectedSequence?: number) => {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      if (
+        typeof expectedSequence === 'number' &&
+        expectedSequence !== shiftUpdateSequenceRef.current
+      ) {
+        return;
+      }
+
+      shiftUpdateSequenceRef.current += 1;
+      setCurrentShift(shift);
+    },
+    [],
+  );
 
   const applyRegionUpdate = useCallback(
     (coords: Location.LocationObjectCoords, animateMap: boolean) => {
@@ -118,6 +206,73 @@ export const DashboardScreen: React.FC = () => {
   useEffect(() => {
     sendLocationUpdateRef.current = sendLocationUpdate;
   }, [sendLocationUpdate]);
+
+  const fetchShift = useCallback(async (): Promise<DriverShift | null | undefined> => {
+    try {
+      const shift = await getCurrentDriverShift();
+
+      return shift;
+    } catch (error) {
+      console.warn('[Dashboard] Failed to fetch current shift', error);
+      return undefined;
+    }
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const syncShift = async () => {
+      const sequenceSnapshot = shiftUpdateSequenceRef.current;
+
+      if (!hasHydrated || !accessToken) {
+        applyShiftUpdate(null, sequenceSnapshot);
+        return;
+      }
+
+      const shift = await fetchShift();
+
+      if (!isActive || shift === undefined) {
+        return;
+      }
+
+      applyShiftUpdate(shift, sequenceSnapshot);
+    };
+
+    void syncShift();
+
+    return () => {
+      isActive = false;
+    };
+  }, [accessToken, applyShiftUpdate, fetchShift, hasHydrated]);
+
+  useEffect(() => {
+    if (!isOnline) {
+      return;
+    }
+
+    let isActive = true;
+
+    const syncShift = async () => {
+      if (!hasHydrated || !accessToken) {
+        return;
+      }
+
+      const sequenceSnapshot = shiftUpdateSequenceRef.current;
+      const shift = await fetchShift();
+
+      if (!isActive || shift === undefined) {
+        return;
+      }
+
+      applyShiftUpdate(shift, sequenceSnapshot);
+    };
+
+    void syncShift();
+
+    return () => {
+      isActive = false;
+    };
+  }, [accessToken, applyShiftUpdate, fetchShift, hasHydrated, isOnline]);
 
   useEffect(() => {
     let isMounted = true;
@@ -215,6 +370,118 @@ export const DashboardScreen: React.FC = () => {
     }
   }, [incomingCountdown]);
 
+  const shiftFinishableDisplay = useMemo(() => {
+    if (!currentShift?.finishableAt) {
+      return null;
+    }
+
+    const rawTimestamp = currentShift.finishableAt;
+    const finishableDate = parseShiftDate(rawTimestamp);
+
+    if (!finishableDate) {
+      return {
+        time: rawTimestamp.replace('T', ' '),
+        date: null,
+      };
+    }
+
+    const timeString = finishableDate.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const today = new Date();
+    const isSameDay = finishableDate.toDateString() === today.toDateString();
+    const dateString = isSameDay
+      ? null
+      : finishableDate.toLocaleDateString([], {
+          month: 'short',
+          day: 'numeric',
+        });
+
+    return {
+      time: timeString,
+      date: dateString,
+    };
+  }, [currentShift?.finishableAt]);
+
+  const handleStartShift = useCallback(async () => {
+    if (isUpdatingShift) {
+      return;
+    }
+
+    setIsUpdatingShift(true);
+
+    try {
+      const shift = await updateDriverAvailability({ available: true });
+
+      applyShiftUpdate(shift);
+      setOnlineStatus(true);
+    } catch (error) {
+      console.warn('[Dashboard] Failed to start shift', error);
+      Alert.alert('Unable to start shift', 'Please try again in a moment.');
+    } finally {
+      setIsUpdatingShift(false);
+    }
+  }, [applyShiftUpdate, isUpdatingShift, setOnlineStatus, updateDriverAvailability]);
+
+  const handleToggleOnline = useCallback(
+    async (nextValue: boolean) => {
+      if (isUpdatingShift) {
+        return;
+      }
+
+      if (nextValue) {
+        setOnlineStatus(true);
+        return;
+      }
+
+      if (!hasActiveShift) {
+        setOnlineStatus(false);
+        return;
+      }
+
+      const finishableAt = parseShiftDate(currentShift?.finishableAt ?? null);
+
+      if (finishableAt && !Number.isNaN(finishableAt.getTime())) {
+        const now = Date.now();
+
+        if (now < finishableAt.getTime()) {
+          const timeString = finishableAt.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+
+          Alert.alert('Shift in progress', `You can end your shift at ${timeString}.`);
+          setOnlineStatus(true);
+          return;
+        }
+      }
+
+      setIsUpdatingShift(true);
+
+      try {
+        const shift = await updateDriverAvailability({ available: false });
+
+        applyShiftUpdate(shift);
+        setOnlineStatus(false);
+      } catch (error) {
+        console.warn('[Dashboard] Failed to end shift', error);
+        Alert.alert('Unable to end shift', 'Please try again in a moment.');
+        setOnlineStatus(true);
+      } finally {
+        setIsUpdatingShift(false);
+      }
+    },
+    [
+      applyShiftUpdate,
+      currentShift?.finishableAt,
+      hasActiveShift,
+      isUpdatingShift,
+      setOnlineStatus,
+      updateDriverAvailability,
+    ],
+  );
+
   const handleAcceptOrder = useCallback(() => {
     setIncomingOrderVisible(false);
     setOngoingOrderVisible(true);
@@ -300,6 +567,12 @@ export const DashboardScreen: React.FC = () => {
     outputRange: [0.2, 0.45],
   });
 
+  useEffect(() => {
+    if (hasActiveShift && !isOnline) {
+      setOnlineStatus(true);
+    }
+  }, [hasActiveShift, isOnline, setOnlineStatus]);
+
   return (
     <View style={styles.safeArea}>
       <View style={styles.container}>
@@ -350,6 +623,21 @@ export const DashboardScreen: React.FC = () => {
             </View>
 
             <View style={styles.overlayBottomContainer}>
+              {hasActiveShift && shiftFinishableDisplay && (
+                <View style={styles.shiftTimerWrapper}>
+                  <Text allowFontScaling={false} style={styles.shiftTimerLabel}>
+                    SHIFT CAN END {shiftFinishableDisplay.date ? 'ON' : 'AT'}
+                  </Text>
+                  <Text allowFontScaling={false} style={styles.shiftTimerValue}>
+                    {shiftFinishableDisplay.time}
+                  </Text>
+                  {shiftFinishableDisplay.date && (
+                    <Text allowFontScaling={false} style={styles.shiftTimerSubValue}>
+                      {shiftFinishableDisplay.date}
+                    </Text>
+                  )}
+                </View>
+              )}
               {isOngoingOrderVisible ? (
                 <OngoingOrderBanner
                   onCallRestaurant={handleCallRestaurant}
@@ -358,20 +646,30 @@ export const DashboardScreen: React.FC = () => {
                   onScanToPickup={handleScanToPickup}
                 />
               ) : (
-                <TouchableOpacity activeOpacity={0.85} style={styles.goWrapper}>
-                  <Animated.View
-                    pointerEvents="none"
-                    style={[styles.goGlow, { opacity: goGlowOpacity, transform: [{ scale: goGlowScale }] }]}
-                  />
-                  <Animated.View style={[styles.goButton, { transform: [{ scale: goScale }] }]}>
-                    <Animated.View style={[styles.goInnerPulse, { opacity: goInnerOpacity }]} />
-                    <View style={styles.goRing}>
-                      <Text allowFontScaling={false} style={styles.goLabel}>
-                        GO!
-                      </Text>
-                    </View>
-                  </Animated.View>
-                </TouchableOpacity>
+                !hasActiveShift && (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    style={styles.goWrapper}
+                    onPress={handleStartShift}
+                    disabled={isUpdatingShift}
+                  >
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[
+                        styles.goGlow,
+                        { opacity: goGlowOpacity, transform: [{ scale: goGlowScale }] },
+                      ]}
+                    />
+                    <Animated.View style={[styles.goButton, { transform: [{ scale: goScale }] }]}>
+                      <Animated.View style={[styles.goInnerPulse, { opacity: goInnerOpacity }]} />
+                      <View style={styles.goRing}>
+                        <Text allowFontScaling={false} style={styles.goLabel}>
+                          GO!
+                        </Text>
+                      </View>
+                    </Animated.View>
+                  </TouchableOpacity>
+                )
               )}
             </View>
           </View>
@@ -393,9 +691,10 @@ export const DashboardScreen: React.FC = () => {
             </Text>
             <Switch
               value={isOnline}
-              onValueChange={toggleOnlineStatus}
+              onValueChange={handleToggleOnline}
               trackColor={{ false: '#E5E7EB', true: '#CA251B' }}
               thumbColor={isOnline ? '#ffffff' : undefined}
+              disabled={isUpdatingShift}
             />
           </View>
         </View>
@@ -616,6 +915,42 @@ const styles = StyleSheet.create({
     height: moderateScale(160),
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  shiftTimerWrapper: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: moderateScale(28),
+    paddingVertical: verticalScale(16),
+    borderRadius: moderateScale(999),
+    backgroundColor: '#ffffff',
+    shadowColor: 'rgba(15, 23, 42, 0.12)',
+    shadowOffset: { width: 0, height: verticalScale(6) },
+    shadowOpacity: 1,
+    shadowRadius: moderateScale(18),
+    elevation: moderateScale(10),
+    marginBottom: verticalScale(18),
+    minWidth: moderateScale(200),
+  },
+  shiftTimerLabel: {
+    fontSize: moderateScale(12),
+    fontWeight: '600',
+    letterSpacing: moderateScale(1),
+    color: '#6B7280',
+  },
+  shiftTimerValue: {
+    marginTop: verticalScale(6),
+    fontSize: moderateScale(30),
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: moderateScale(1.2),
+  },
+  shiftTimerSubValue: {
+    marginTop: verticalScale(2),
+    fontSize: moderateScale(14),
+    fontWeight: '600',
+    color: '#6B7280',
+    letterSpacing: moderateScale(0.4),
   },
   goGlow: {
     position: 'absolute',
