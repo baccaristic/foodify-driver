@@ -16,12 +16,13 @@ import { BarcodeScanningResult } from 'expo-camera';
 import { PlatformBlurView } from '../../components/PlatformBlurView';
 
 import { useAuth } from '../../contexts/AuthContext';
-import { updateDriverLocation } from '../../services/driverService';
+import { getCurrentDriverShift, updateDriverLocation } from '../../services/driverService';
 import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
 import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
 import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DriverShift, DriverShiftStatus } from '../../types/shift';
 
 const DEFAULT_REGION = {
   latitude: 47.5726,
@@ -31,7 +32,7 @@ const DEFAULT_REGION = {
 };
 
 export const DashboardScreen: React.FC = () => {
-  const { user, toggleOnlineStatus, isOnline } = useAuth();
+  const { user, toggleOnlineStatus, isOnline, accessToken, hasHydrated } = useAuth();
 
   const formattedName = (user?.name || user?.email || 'Driver').toUpperCase();
   const [userRegion, setUserRegion] = useState<Region | null>(null);
@@ -53,6 +54,8 @@ export const DashboardScreen: React.FC = () => {
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
+  const [currentShift, setCurrentShift] = useState<DriverShift | null>(null);
+  const [shiftDuration, setShiftDuration] = useState<string>('00:00:00');
   const goPulse = useRef(new Animated.Value(0)).current;
   const instes = useSafeAreaInsets();
 
@@ -118,6 +121,73 @@ export const DashboardScreen: React.FC = () => {
   useEffect(() => {
     sendLocationUpdateRef.current = sendLocationUpdate;
   }, [sendLocationUpdate]);
+
+  const fetchShift = useCallback(async (): Promise<DriverShift | null | undefined> => {
+    try {
+      const shift = await getCurrentDriverShift();
+
+      return shift;
+    } catch (error) {
+      console.warn('[Dashboard] Failed to fetch current shift', error);
+      return undefined;
+    }
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncShift = async () => {
+      if (!hasHydrated || !accessToken) {
+        if (isMounted) {
+          setCurrentShift(null);
+        }
+
+        return;
+      }
+
+      const shift = await fetchShift();
+
+      if (!isMounted || shift === undefined) {
+        return;
+      }
+
+      setCurrentShift(shift);
+    };
+
+    syncShift();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken, fetchShift, hasHydrated]);
+
+  useEffect(() => {
+    if (!isOnline) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const syncShift = async () => {
+      if (!hasHydrated || !accessToken) {
+        return;
+      }
+
+      const shift = await fetchShift();
+
+      if (!isMounted || shift === undefined) {
+        return;
+      }
+
+      setCurrentShift(shift);
+    };
+
+    syncShift();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken, fetchShift, hasHydrated, isOnline]);
 
   useEffect(() => {
     let isMounted = true;
@@ -215,6 +285,45 @@ export const DashboardScreen: React.FC = () => {
     }
   }, [incomingCountdown]);
 
+  useEffect(() => {
+    if (
+      !currentShift ||
+      currentShift.status !== DriverShiftStatus.ACTIVE ||
+      !currentShift.startedAt
+    ) {
+      setShiftDuration('00:00:00');
+      return;
+    }
+
+    const startDate = new Date(currentShift.startedAt);
+
+    if (Number.isNaN(startDate.getTime())) {
+      setShiftDuration('00:00:00');
+      return;
+    }
+
+    const updateDuration = () => {
+      const now = Date.now();
+      const diffSeconds = Math.max(0, Math.floor((now - startDate.getTime()) / 1000));
+      const hours = Math.floor(diffSeconds / 3600);
+      const minutes = Math.floor((diffSeconds % 3600) / 60);
+      const seconds = diffSeconds % 60;
+      const formatted = [hours, minutes, seconds]
+        .map((value) => value.toString().padStart(2, '0'))
+        .join(':');
+
+      setShiftDuration(formatted);
+    };
+
+    updateDuration();
+
+    const intervalId = setInterval(updateDuration, 1000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [currentShift]);
+
   const handleAcceptOrder = useCallback(() => {
     setIncomingOrderVisible(false);
     setOngoingOrderVisible(true);
@@ -300,6 +409,9 @@ export const DashboardScreen: React.FC = () => {
     outputRange: [0.2, 0.45],
   });
 
+  const hasActiveShift =
+    currentShift?.status === DriverShiftStatus.ACTIVE && Boolean(currentShift.startedAt);
+
   return (
     <View style={styles.safeArea}>
       <View style={styles.container}>
@@ -350,6 +462,16 @@ export const DashboardScreen: React.FC = () => {
             </View>
 
             <View style={styles.overlayBottomContainer}>
+              {hasActiveShift && (
+                <View style={styles.shiftTimerWrapper}>
+                  <Text allowFontScaling={false} style={styles.shiftTimerLabel}>
+                    SHIFT DURATION
+                  </Text>
+                  <Text allowFontScaling={false} style={styles.shiftTimerValue}>
+                    {shiftDuration}
+                  </Text>
+                </View>
+              )}
               {isOngoingOrderVisible ? (
                 <OngoingOrderBanner
                   onCallRestaurant={handleCallRestaurant}
@@ -358,20 +480,25 @@ export const DashboardScreen: React.FC = () => {
                   onScanToPickup={handleScanToPickup}
                 />
               ) : (
-                <TouchableOpacity activeOpacity={0.85} style={styles.goWrapper}>
-                  <Animated.View
-                    pointerEvents="none"
-                    style={[styles.goGlow, { opacity: goGlowOpacity, transform: [{ scale: goGlowScale }] }]}
-                  />
-                  <Animated.View style={[styles.goButton, { transform: [{ scale: goScale }] }]}>
-                    <Animated.View style={[styles.goInnerPulse, { opacity: goInnerOpacity }]} />
-                    <View style={styles.goRing}>
-                      <Text allowFontScaling={false} style={styles.goLabel}>
-                        GO!
-                      </Text>
-                    </View>
-                  </Animated.View>
-                </TouchableOpacity>
+                !hasActiveShift && (
+                  <TouchableOpacity activeOpacity={0.85} style={styles.goWrapper}>
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[
+                        styles.goGlow,
+                        { opacity: goGlowOpacity, transform: [{ scale: goGlowScale }] },
+                      ]}
+                    />
+                    <Animated.View style={[styles.goButton, { transform: [{ scale: goScale }] }]}>
+                      <Animated.View style={[styles.goInnerPulse, { opacity: goInnerOpacity }]} />
+                      <View style={styles.goRing}>
+                        <Text allowFontScaling={false} style={styles.goLabel}>
+                          GO!
+                        </Text>
+                      </View>
+                    </Animated.View>
+                  </TouchableOpacity>
+                )
               )}
             </View>
           </View>
@@ -616,6 +743,35 @@ const styles = StyleSheet.create({
     height: moderateScale(160),
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  shiftTimerWrapper: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: moderateScale(28),
+    paddingVertical: verticalScale(16),
+    borderRadius: moderateScale(999),
+    backgroundColor: '#ffffff',
+    shadowColor: 'rgba(15, 23, 42, 0.12)',
+    shadowOffset: { width: 0, height: verticalScale(6) },
+    shadowOpacity: 1,
+    shadowRadius: moderateScale(18),
+    elevation: moderateScale(10),
+    marginBottom: verticalScale(18),
+    minWidth: moderateScale(200),
+  },
+  shiftTimerLabel: {
+    fontSize: moderateScale(12),
+    fontWeight: '600',
+    letterSpacing: moderateScale(1),
+    color: '#6B7280',
+  },
+  shiftTimerValue: {
+    marginTop: verticalScale(6),
+    fontSize: moderateScale(30),
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: moderateScale(1.2),
   },
   goGlow: {
     position: 'absolute',
