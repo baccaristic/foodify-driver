@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -109,7 +109,6 @@ export const DashboardScreen: React.FC = () => {
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
   const [currentShift, setCurrentShift] = useState<DriverShift | null>(null);
-  const [shiftDuration, setShiftDuration] = useState<string>('00:00:00');
   const [isUpdatingShift, setIsUpdatingShift] = useState<boolean>(false);
   const hasActiveShift =
     currentShift?.status === DriverShiftStatus.ACTIVE && Boolean(currentShift.startedAt);
@@ -371,44 +370,39 @@ export const DashboardScreen: React.FC = () => {
     }
   }, [incomingCountdown]);
 
-  useEffect(() => {
-    if (
-      !currentShift ||
-      currentShift.status !== DriverShiftStatus.ACTIVE ||
-      !currentShift.startedAt
-    ) {
-      setShiftDuration('00:00:00');
-      return;
+  const shiftFinishableDisplay = useMemo(() => {
+    if (!currentShift?.finishableAt) {
+      return null;
     }
 
-    const startDate = parseShiftDate(currentShift.startedAt);
+    const rawTimestamp = currentShift.finishableAt;
+    const finishableDate = parseShiftDate(rawTimestamp);
 
-    if (!startDate) {
-      setShiftDuration('00:00:00');
-      return;
+    if (!finishableDate) {
+      return {
+        time: rawTimestamp.replace('T', ' '),
+        date: null,
+      };
     }
 
-    const updateDuration = () => {
-      const now = Date.now();
-      const diffSeconds = Math.max(0, Math.floor((now - startDate.getTime()) / 1000));
-      const hours = Math.floor(diffSeconds / 3600);
-      const minutes = Math.floor((diffSeconds % 3600) / 60);
-      const seconds = diffSeconds % 60;
-      const formatted = [hours, minutes, seconds]
-        .map((value) => value.toString().padStart(2, '0'))
-        .join(':');
+    const timeString = finishableDate.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const today = new Date();
+    const isSameDay = finishableDate.toDateString() === today.toDateString();
+    const dateString = isSameDay
+      ? null
+      : finishableDate.toLocaleDateString([], {
+          month: 'short',
+          day: 'numeric',
+        });
 
-      setShiftDuration(formatted);
+    return {
+      time: timeString,
+      date: dateString,
     };
-
-    updateDuration();
-
-    const intervalId = setInterval(updateDuration, 1000);
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [currentShift]);
+  }, [currentShift?.finishableAt]);
 
   const handleStartShift = useCallback(async () => {
     if (isUpdatingShift) {
@@ -629,14 +623,19 @@ export const DashboardScreen: React.FC = () => {
             </View>
 
             <View style={styles.overlayBottomContainer}>
-              {hasActiveShift && (
+              {hasActiveShift && shiftFinishableDisplay && (
                 <View style={styles.shiftTimerWrapper}>
                   <Text allowFontScaling={false} style={styles.shiftTimerLabel}>
-                    SHIFT DURATION
+                    SHIFT CAN END {shiftFinishableDisplay.date ? 'ON' : 'AT'}
                   </Text>
                   <Text allowFontScaling={false} style={styles.shiftTimerValue}>
-                    {shiftDuration}
+                    {shiftFinishableDisplay.time}
                   </Text>
+                  {shiftFinishableDisplay.date && (
+                    <Text allowFontScaling={false} style={styles.shiftTimerSubValue}>
+                      {shiftFinishableDisplay.date}
+                    </Text>
+                  )}
                 </View>
               )}
               {isOngoingOrderVisible ? (
@@ -945,6 +944,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     letterSpacing: moderateScale(1.2),
+  },
+  shiftTimerSubValue: {
+    marginTop: verticalScale(2),
+    fontSize: moderateScale(14),
+    fontWeight: '600',
+    color: '#6B7280',
+    letterSpacing: moderateScale(0.4),
   },
   goGlow: {
     position: 'absolute',
