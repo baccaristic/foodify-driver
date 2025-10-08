@@ -21,8 +21,10 @@ import { PlatformBlurView } from '../../components/PlatformBlurView';
 
 import { useAuth } from '../../contexts/AuthContext';
 import {
+  confirmOrderDelivery,
   getDriverOngoingOrder,
   getCurrentDriverShift,
+  markOrderAsPickedUp,
   updateDriverAvailability,
   updateDriverLocation,
 } from '../../services/driverService';
@@ -31,6 +33,7 @@ import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
 import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
 import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
 import { ConfirmDeliveryOverlay } from '../../components/ConfirmDeliveryOverlay';
+import { ActionResultModal } from '../../components/ActionResultModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DriverShift, DriverShiftStatus } from '../../types/shift';
 import { OrderDto, OrderStatus } from '../../types/order';
@@ -145,6 +148,17 @@ export const DashboardScreen: React.FC = () => {
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
   const [isConfirmDeliveryOverlayVisible, setConfirmDeliveryOverlayVisible] =
     useState<boolean>(false);
+  const [isProcessingPickup, setIsProcessingPickup] = useState<boolean>(false);
+  const [isProcessingDelivery, setIsProcessingDelivery] = useState<boolean>(false);
+  const [resultModal, setResultModal] = useState<
+    | {
+        status: 'success' | 'error';
+        title: string;
+        message: string;
+        onAfterClose?: () => void;
+      }
+    | null
+  >(null);
   const [currentShift, setCurrentShift] = useState<DriverShift | null>(null);
   const [isUpdatingShift, setIsUpdatingShift] = useState<boolean>(false);
   const hasActiveShift =
@@ -172,6 +186,9 @@ export const DashboardScreen: React.FC = () => {
 
   const isScanToPickupVisible = ongoingStatus === OrderStatus.READY_FOR_PICK_UP;
   const isConfirmDeliveryVisible = ongoingStatus === OrderStatus.IN_DELIVERY;
+
+  const scanAvailabilityRef = useRef(isScanToPickupVisible);
+  const confirmAvailabilityRef = useRef(isConfirmDeliveryVisible);
 
   const navigationTarget = useMemo(() => {
     if (!ongoingOrder) {
@@ -202,6 +219,14 @@ export const DashboardScreen: React.FC = () => {
       setIncomingOrderVisible(false);
     }
   }, [ongoingOrder]);
+
+  useEffect(() => {
+    scanAvailabilityRef.current = isScanToPickupVisible;
+  }, [isScanToPickupVisible]);
+
+  useEffect(() => {
+    confirmAvailabilityRef.current = isConfirmDeliveryVisible;
+  }, [isConfirmDeliveryVisible]);
 
   const applyShiftUpdate = useCallback(
     (shift: DriverShift | null, expectedSequence?: number) => {
@@ -714,10 +739,79 @@ export const DashboardScreen: React.FC = () => {
     setConfirmDeliveryOverlayVisible(false);
   }, []);
 
-  const handleSubmitDeliveryCode = useCallback((code: string) => {
-    console.log('Delivery code submitted:', code);
-    setConfirmDeliveryOverlayVisible(false);
+  const handleCloseResultModal = useCallback(() => {
+    setResultModal((previous) => {
+      previous?.onAfterClose?.();
+      return null;
+    });
   }, []);
+
+  const handleSubmitDeliveryCode = useCallback(
+    async (code: string) => {
+      if (isProcessingDelivery) {
+        return;
+      }
+
+      const orderId = ongoingOrder?.id;
+
+      if (!orderId) {
+        setConfirmDeliveryOverlayVisible(false);
+        setResultModal({
+          status: 'error',
+          title: 'Incorrect Code !',
+          message: 'Please verify the confirmation code and try again.',
+        });
+        return;
+      }
+
+      setIsProcessingDelivery(true);
+
+      try {
+        const isDelivered = await confirmOrderDelivery({
+          orderId,
+          token: code,
+        });
+
+        setConfirmDeliveryOverlayVisible(false);
+
+        if (isDelivered) {
+          setResultModal({
+            status: 'success',
+            title: 'Correct Code !',
+            message: 'The delivery has been confirmed successfully.',
+          });
+          await syncOngoingOrder();
+        } else {
+          setResultModal({
+            status: 'error',
+            title: 'Incorrect Code !',
+            message: 'Please verify the confirmation code and try again.',
+            onAfterClose: () => {
+              if (confirmAvailabilityRef.current) {
+                setConfirmDeliveryOverlayVisible(true);
+              }
+            },
+          });
+        }
+      } catch (error) {
+        console.warn('[Dashboard] Failed to confirm delivery', error);
+        setConfirmDeliveryOverlayVisible(false);
+        setResultModal({
+          status: 'error',
+          title: 'Incorrect Code !',
+          message: 'Please verify the confirmation code and try again.',
+          onAfterClose: () => {
+            if (confirmAvailabilityRef.current) {
+              setConfirmDeliveryOverlayVisible(true);
+            }
+          },
+        });
+      } finally {
+        setIsProcessingDelivery(false);
+      }
+    },
+    [isProcessingDelivery, ongoingOrder?.id, syncOngoingOrder],
+  );
 
   const handleCloseOrderDetails = useCallback(() => {
     setOrderDetailsVisible(false);
@@ -727,10 +821,64 @@ export const DashboardScreen: React.FC = () => {
     setScanOverlayVisible(false);
   }, []);
 
-  const handleQRCodeScanned = useCallback((result: BarcodeScanningResult) => {
-    console.log('QR code scanned:', result.data);
-    setScanOverlayVisible(false);
-  }, []);
+  const handleQRCodeScanned = useCallback(
+    async (result: BarcodeScanningResult) => {
+      if (isProcessingPickup) {
+        return;
+      }
+
+      const orderId = ongoingOrder?.id;
+      const token = typeof result.data === 'string' ? result.data.trim() : '';
+
+      setIsProcessingPickup(true);
+      setScanOverlayVisible(false);
+
+      if (!orderId || !token) {
+        setResultModal({
+          status: 'error',
+          title: 'Incorrect QR Code !',
+          message: 'Please check your order again',
+          onAfterClose: () => {
+            if (scanAvailabilityRef.current) {
+              setScanOverlayVisible(true);
+            }
+          },
+        });
+        setIsProcessingPickup(false);
+        return;
+      }
+
+      try {
+        await markOrderAsPickedUp({
+          orderId,
+          token,
+        });
+
+        setResultModal({
+          status: 'success',
+          title: 'Correct QR Code !',
+          message: 'You can pick up your order',
+        });
+
+        await syncOngoingOrder();
+      } catch (error) {
+        console.warn('[Dashboard] Failed to mark order as picked up', error);
+        setResultModal({
+          status: 'error',
+          title: 'Incorrect QR Code !',
+          message: 'Please check your order again',
+          onAfterClose: () => {
+            if (scanAvailabilityRef.current) {
+              setScanOverlayVisible(true);
+            }
+          },
+        });
+      } finally {
+        setIsProcessingPickup(false);
+      }
+    },
+    [isProcessingPickup, ongoingOrder?.id, syncOngoingOrder],
+  );
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -944,8 +1092,16 @@ export const DashboardScreen: React.FC = () => {
             onClose={handleCloseConfirmDelivery}
             onSubmit={handleSubmitDeliveryCode}
             visible={isConfirmDeliveryOverlayVisible}
+            isSubmitting={isProcessingDelivery}
           />
         )}
+        <ActionResultModal
+          visible={Boolean(resultModal)}
+          status={resultModal?.status ?? 'success'}
+          title={resultModal?.title ?? ''}
+          message={resultModal?.message ?? ''}
+          onClose={handleCloseResultModal}
+        />
       </View>
     </View>
   );

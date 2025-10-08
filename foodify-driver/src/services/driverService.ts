@@ -57,3 +57,45 @@ export const getDriverOngoingOrder = async (): Promise<OrderDto | null> => {
 
   return data as OrderDto;
 };
+
+type MarkOrderPickedUpPayload = {
+  orderId: number | string;
+  token: string;
+};
+
+type PickupSuccessResponse = { message?: string } | string;
+
+export const markOrderAsPickedUp = async (
+  payload: MarkOrderPickedUpPayload,
+): Promise<string | null> => {
+  const response = await apiClient.post<PickupSuccessResponse>('/api/driver/pickup', {
+    orderId: String(payload.orderId),
+    token: payload.token,
+  });
+
+  const data = response.data;
+
+  if (typeof data === 'string') {
+    return data;
+  }
+
+  if (data && typeof data === 'object' && 'message' in data && typeof data.message === 'string') {
+    return data.message;
+  }
+
+  return null;
+};
+
+type ConfirmDeliveryPayload = {
+  orderId: number | string;
+  token: string;
+};
+
+export const confirmOrderDelivery = async (payload: ConfirmDeliveryPayload): Promise<boolean> => {
+  const response = await apiClient.post<boolean>('/api/driver/deliver-order', {
+    orderId: payload.orderId,
+    token: payload.token,
+  });
+
+  return response.data === true;
+};

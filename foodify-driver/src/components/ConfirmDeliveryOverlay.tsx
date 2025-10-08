@@ -15,6 +15,7 @@ export interface ConfirmDeliveryOverlayProps {
   visible: boolean;
   onClose: () => void;
   onSubmit?: (code: string) => void;
+  isSubmitting?: boolean;
 }
 
 const CODE_LENGTH = 3;
@@ -23,6 +24,7 @@ export const ConfirmDeliveryOverlay: React.FC<ConfirmDeliveryOverlayProps> = ({
   visible,
   onClose,
   onSubmit,
+  isSubmitting = false,
 }) => {
   const [code, setCode] = useState('');
 
@@ -46,7 +48,7 @@ export const ConfirmDeliveryOverlay: React.FC<ConfirmDeliveryOverlayProps> = ({
   };
 
   const handleSubmit = () => {
-    if (!isCodeValid) {
+    if (!isCodeValid || isSubmitting) {
       return;
     }
 
@@ -100,9 +102,12 @@ export const ConfirmDeliveryOverlay: React.FC<ConfirmDeliveryOverlayProps> = ({
               accessibilityLabel="Submit delivery confirmation code"
               accessibilityRole="button"
               activeOpacity={0.85}
-              disabled={!isCodeValid}
+              disabled={!isCodeValid || isSubmitting}
               onPress={handleSubmit}
-              style={[styles.submitButton, !isCodeValid && styles.submitButtonDisabled]}
+              style={[
+                styles.submitButton,
+                (!isCodeValid || isSubmitting) && styles.submitButtonDisabled,
+              ]}
             >
               <Text allowFontScaling={false} style={styles.submitLabel}>
                 Confirm delivery
