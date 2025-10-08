@@ -37,6 +37,7 @@ import { ActionResultModal } from '../../components/ActionResultModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DriverShift, DriverShiftStatus } from '../../types/shift';
 import { OrderDto, OrderStatus } from '../../types/order';
+import { DashboardSidebar } from './components/DashboardSidebar';
 
 const parseShiftDate = (value: string | null | undefined): Date | null => {
   if (!value) {
@@ -126,6 +127,12 @@ export const DashboardScreen: React.FC = () => {
   const { user, isOnline, accessToken, hasHydrated, setOnlineStatus } = useAuth();
 
   const formattedName = (user?.name || user?.email || 'Driver').toUpperCase();
+  const friendlyName = useMemo(() => {
+    const raw = (user?.name || user?.email || 'Driver').trim();
+    const normalized = raw.includes('@') ? raw.split('@')[0] : raw;
+    const firstWord = normalized.split(/\s+/)[0] || 'Driver';
+    return firstWord.charAt(0).toUpperCase() + firstWord.slice(1);
+  }, [user?.email, user?.name]);
   const [userRegion, setUserRegion] = useState<Region | null>(null);
   const mapRef = useRef<MapViewType | null>(null);
   const locationWatcher = useRef<Location.LocationSubscription | null>(null);
@@ -140,7 +147,7 @@ export const DashboardScreen: React.FC = () => {
       longitudeDelta: DEFAULT_REGION.longitudeDelta,
     }),
   );
-  const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(true);
+  const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(false);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [ongoingOrder, setOngoingOrder] = useState<OrderDto | null>(null);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
@@ -165,6 +172,7 @@ export const DashboardScreen: React.FC = () => {
     currentShift?.status === DriverShiftStatus.ACTIVE && Boolean(currentShift.startedAt);
   const goPulse = useRef(new Animated.Value(0)).current;
   const instes = useSafeAreaInsets();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const shiftUpdateSequenceRef = useRef(0);
   const isMountedRef = useRef(true);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState as AppStateStatus);
@@ -559,6 +567,16 @@ export const DashboardScreen: React.FC = () => {
     };
   }, [currentShift?.finishableAt]);
 
+  const shiftStatusMessage = useMemo(() => {
+    if (!shiftFinishableDisplay) {
+      return null;
+    }
+
+    return shiftFinishableDisplay.date
+      ? `Shift can end on ${shiftFinishableDisplay.date} at ${shiftFinishableDisplay.time}`
+      : `Shift can end at ${shiftFinishableDisplay.time}`;
+  }, [shiftFinishableDisplay]);
+
   const handleStartShift = useCallback(async () => {
     if (isUpdatingShift) {
       return;
@@ -931,6 +949,14 @@ export const DashboardScreen: React.FC = () => {
     }
   }, [hasActiveShift, isOnline, setOnlineStatus]);
 
+  const handleOpenSidebar = useCallback(() => {
+    setIsSidebarOpen(true);
+  }, []);
+
+  const handleCloseSidebar = useCallback(() => {
+    setIsSidebarOpen(false);
+  }, []);
+
   return (
     <View style={styles.safeArea}>
       <View style={styles.container}>
@@ -955,7 +981,11 @@ export const DashboardScreen: React.FC = () => {
 
           <View pointerEvents="box-none" style={{ ...styles.mapOverlay, paddingTop: instes.top }}>
             <View style={styles.header}>
-              <TouchableOpacity activeOpacity={0.8} style={styles.menuButton}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.menuButton}
+                onPress={handleOpenSidebar}
+              >
                 <View style={styles.menuLine} />
                 <View style={styles.menuLineMedium} />
                 <View style={styles.menuLineSmall} />
@@ -981,21 +1011,6 @@ export const DashboardScreen: React.FC = () => {
             </View>
 
             <View style={styles.overlayBottomContainer}>
-              {hasActiveShift && shiftFinishableDisplay && (
-                <View style={styles.shiftTimerWrapper}>
-                  <Text allowFontScaling={false} style={styles.shiftTimerLabel}>
-                    SHIFT CAN END {shiftFinishableDisplay.date ? 'ON' : 'AT'}
-                  </Text>
-                  <Text allowFontScaling={false} style={styles.shiftTimerValue}>
-                    {shiftFinishableDisplay.time}
-                  </Text>
-                  {shiftFinishableDisplay.date && (
-                    <Text allowFontScaling={false} style={styles.shiftTimerSubValue}>
-                      {shiftFinishableDisplay.date}
-                    </Text>
-                  )}
-                </View>
-              )}
               {isOngoingOrderVisible ? (
                 <OngoingOrderBanner
                   callLabel={callLabel}
@@ -1038,14 +1053,22 @@ export const DashboardScreen: React.FC = () => {
           </View>
         </View>
 
-        <View style={{...styles.footer, paddingBottom: instes.bottom}}>
-          <View>
+        <View style={{ ...styles.footer, paddingBottom: instes.bottom }}>
+          <View style={styles.footerTextWrapper}>
             <Text allowFontScaling={false} style={styles.footerGreeting}>
               HELLO, {formattedName}
             </Text>
-            <Text allowFontScaling={false} style={styles.footerSubtitle}>
-              Ready to work ?
-            </Text>
+            {hasActiveShift && shiftStatusMessage ? (
+              <View style={styles.shiftStatusPill}>
+                <Text allowFontScaling={false} style={styles.shiftStatusText}>
+                  {shiftStatusMessage}
+                </Text>
+              </View>
+            ) : (
+              <Text allowFontScaling={false} style={styles.footerSubtitle}>
+                Ready to work ?
+              </Text>
+            )}
           </View>
 
           <View style={styles.statusWrapper}>
@@ -1101,6 +1124,15 @@ export const DashboardScreen: React.FC = () => {
           title={resultModal?.title ?? ''}
           message={resultModal?.message ?? ''}
           onClose={handleCloseResultModal}
+        />
+        <DashboardSidebar
+          visible={isSidebarOpen}
+          friendlyName={friendlyName}
+          hasActiveShift={hasActiveShift}
+          shiftStatusMessage={shiftStatusMessage}
+          topInset={instes.top}
+          bottomInset={instes.bottom}
+          onClose={handleCloseSidebar}
         />
       </View>
     </View>
@@ -1294,42 +1326,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  shiftTimerWrapper: {
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: moderateScale(28),
-    paddingVertical: verticalScale(16),
-    borderRadius: moderateScale(999),
-    backgroundColor: '#ffffff',
-    shadowColor: 'rgba(15, 23, 42, 0.12)',
-    shadowOffset: { width: 0, height: verticalScale(6) },
-    shadowOpacity: 1,
-    shadowRadius: moderateScale(18),
-    elevation: moderateScale(10),
-    marginBottom: verticalScale(18),
-    minWidth: moderateScale(200),
-  },
-  shiftTimerLabel: {
-    fontSize: moderateScale(12),
-    fontWeight: '600',
-    letterSpacing: moderateScale(1),
-    color: '#6B7280',
-  },
-  shiftTimerValue: {
-    marginTop: verticalScale(6),
-    fontSize: moderateScale(30),
-    fontWeight: '700',
-    color: '#111827',
-    letterSpacing: moderateScale(1.2),
-  },
-  shiftTimerSubValue: {
-    marginTop: verticalScale(2),
-    fontSize: moderateScale(14),
-    fontWeight: '600',
-    color: '#6B7280',
-    letterSpacing: moderateScale(0.4),
-  },
   goGlow: {
     position: 'absolute',
     width: '100%',
@@ -1380,6 +1376,7 @@ const styles = StyleSheet.create({
   footer: {
     backgroundColor: '#ffffff',
     paddingHorizontal: moderateScale(24),
+    paddingTop: verticalScale(20),
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1388,6 +1385,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: moderateScale(20),
     elevation: moderateScale(10),
+  },
+  footerTextWrapper: {
+    flex: 1,
+    paddingRight: moderateScale(16),
   },
   footerGreeting: {
     fontSize: moderateScale(16),
@@ -1399,6 +1400,20 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(14),
     color: '#6B7280',
     marginTop: verticalScale(2),
+  },
+  shiftStatusPill: {
+    marginTop: verticalScale(8),
+    alignSelf: 'flex-start',
+    backgroundColor: '#CA251B',
+    paddingHorizontal: moderateScale(16),
+    paddingVertical: verticalScale(6),
+    borderRadius: moderateScale(999),
+  },
+  shiftStatusText: {
+    color: '#ffffff',
+    fontSize: moderateScale(13),
+    fontWeight: '600',
+    letterSpacing: moderateScale(0.2),
   },
   statusWrapper: {
     flexDirection: 'row',
