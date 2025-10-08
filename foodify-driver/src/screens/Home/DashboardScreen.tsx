@@ -377,7 +377,7 @@ export const DashboardScreen: React.FC = () => {
           </View>
         </View>
 
-        <View style={styles.footer}>
+        <View style={{...styles.footer, paddingBottom: instes.bottom}}>
           <View>
             <Text allowFontScaling={false} style={styles.footerGreeting}>
               HELLO, {formattedName}
@@ -667,7 +667,6 @@ const styles = StyleSheet.create({
   footer: {
     backgroundColor: '#ffffff',
     paddingHorizontal: moderateScale(24),
-    paddingVertical: verticalScale(24),
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',

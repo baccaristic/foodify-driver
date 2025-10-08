@@ -13,7 +13,7 @@ const processEnv = globalObj.process?.env ?? {};
 
 const extra = (Constants.expoConfig?.extra ?? {}) as ExtraConfig;
 
-const fallbackBaseUrl = 'https://api.foodify.example';
+const fallbackBaseUrl = 'https://172.20.10.3:8081';
 const fallbackWebSocketUrl = 'wss://ws.foodify.example';
 
 export const ENV = {
