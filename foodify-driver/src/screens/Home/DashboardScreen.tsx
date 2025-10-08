@@ -115,6 +115,35 @@ export const DashboardScreen: React.FC = () => {
     currentShift?.status === DriverShiftStatus.ACTIVE && Boolean(currentShift.startedAt);
   const goPulse = useRef(new Animated.Value(0)).current;
   const instes = useSafeAreaInsets();
+  const shiftUpdateSequenceRef = useRef(0);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const applyShiftUpdate = useCallback(
+    (shift: DriverShift | null, expectedSequence?: number) => {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      if (
+        typeof expectedSequence === 'number' &&
+        expectedSequence !== shiftUpdateSequenceRef.current
+      ) {
+        return;
+      }
+
+      shiftUpdateSequenceRef.current += 1;
+      setCurrentShift(shift);
+    },
+    [],
+  );
 
   const applyRegionUpdate = useCallback(
     (coords: Location.LocationObjectCoords, animateMap: boolean) => {
@@ -191,60 +220,60 @@ export const DashboardScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
+    let isActive = true;
 
     const syncShift = async () => {
-      if (!hasHydrated || !accessToken) {
-        if (isMounted) {
-          setCurrentShift(null);
-        }
+      const sequenceSnapshot = shiftUpdateSequenceRef.current;
 
+      if (!hasHydrated || !accessToken) {
+        applyShiftUpdate(null, sequenceSnapshot);
         return;
       }
 
       const shift = await fetchShift();
 
-      if (!isMounted || shift === undefined) {
+      if (!isActive || shift === undefined) {
         return;
       }
 
-      setCurrentShift(shift);
+      applyShiftUpdate(shift, sequenceSnapshot);
     };
 
-    syncShift();
+    void syncShift();
 
     return () => {
-      isMounted = false;
+      isActive = false;
     };
-  }, [accessToken, fetchShift, hasHydrated]);
+  }, [accessToken, applyShiftUpdate, fetchShift, hasHydrated]);
 
   useEffect(() => {
     if (!isOnline) {
       return;
     }
 
-    let isMounted = true;
+    let isActive = true;
 
     const syncShift = async () => {
       if (!hasHydrated || !accessToken) {
         return;
       }
 
+      const sequenceSnapshot = shiftUpdateSequenceRef.current;
       const shift = await fetchShift();
 
-      if (!isMounted || shift === undefined) {
+      if (!isActive || shift === undefined) {
         return;
       }
 
-      setCurrentShift(shift);
+      applyShiftUpdate(shift, sequenceSnapshot);
     };
 
-    syncShift();
+    void syncShift();
 
     return () => {
-      isMounted = false;
+      isActive = false;
     };
-  }, [accessToken, fetchShift, hasHydrated, isOnline]);
+  }, [accessToken, applyShiftUpdate, fetchShift, hasHydrated, isOnline]);
 
   useEffect(() => {
     let isMounted = true;
@@ -391,7 +420,7 @@ export const DashboardScreen: React.FC = () => {
     try {
       const shift = await updateDriverAvailability({ available: true });
 
-      setCurrentShift(shift);
+      applyShiftUpdate(shift);
       setOnlineStatus(true);
     } catch (error) {
       console.warn('[Dashboard] Failed to start shift', error);
@@ -399,7 +428,7 @@ export const DashboardScreen: React.FC = () => {
     } finally {
       setIsUpdatingShift(false);
     }
-  }, [isUpdatingShift, setOnlineStatus, updateDriverAvailability]);
+  }, [applyShiftUpdate, isUpdatingShift, setOnlineStatus, updateDriverAvailability]);
 
   const handleToggleOnline = useCallback(
     async (nextValue: boolean) => {
@@ -439,7 +468,7 @@ export const DashboardScreen: React.FC = () => {
       try {
         const shift = await updateDriverAvailability({ available: false });
 
-        setCurrentShift(shift);
+        applyShiftUpdate(shift);
         setOnlineStatus(false);
       } catch (error) {
         console.warn('[Dashboard] Failed to end shift', error);
@@ -450,6 +479,7 @@ export const DashboardScreen: React.FC = () => {
       }
     },
     [
+      applyShiftUpdate,
       currentShift?.finishableAt,
       hasActiveShift,
       isUpdatingShift,
