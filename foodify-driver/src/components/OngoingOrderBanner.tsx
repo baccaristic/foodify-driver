@@ -5,7 +5,7 @@ import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 import type { OrderDto } from '../types/order';
 
 export interface OngoingOrderBannerProps {
-  order: OrderDto;
+  order?: OrderDto | null;
   onCallRestaurant?: () => void;
   onSeeOrderDetails?: () => void;
   onLookForDirection?: () => void;
@@ -20,6 +20,10 @@ export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
   onScanToPickup,
 }) => {
   const totalItemsLabel = useMemo(() => {
+    if (!order) {
+      return 'No items';
+    }
+
     const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
 
     if (totalQuantity <= 0) {
@@ -27,7 +31,23 @@ export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
     }
 
     return `${totalQuantity} item${totalQuantity > 1 ? 's' : ''}`;
-  }, [order.items]);
+  }, [order]);
+
+  const deliverySubtitle = useMemo(() => {
+    if (!order) {
+      return null;
+    }
+
+    if (order.clientAddress) {
+      return `Deliver to ${order.clientAddress}`;
+    }
+
+    if (order.restaurantAddress) {
+      return `Pickup at ${order.restaurantAddress}`;
+    }
+
+    return null;
+  }, [order]);
 
   return (
     <View style={styles.container}>
@@ -50,23 +70,17 @@ export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
         <View style={styles.row}>
           <View style={[styles.column, styles.orderInfo]}>
             <Text allowFontScaling={false} style={styles.orderNumber}>
-              Order #{order.id}
+              {order ? `Order #${order.id}` : 'Active order'}
             </Text>
-            {order.restaurantName ? (
-              <Text allowFontScaling={false} style={styles.title}>
-                {order.restaurantName}
-              </Text>
-            ) : (
-              <Text allowFontScaling={false} style={styles.title}>
-                Pickup order
-              </Text>
-            )}
+            <Text allowFontScaling={false} style={styles.title} numberOfLines={1}>
+              {order?.restaurantName ?? 'Your order'}
+            </Text>
             <Text allowFontScaling={false} style={styles.subtitle}>
               {totalItemsLabel}
             </Text>
-            {order.clientAddress ? (
+            {deliverySubtitle ? (
               <Text allowFontScaling={false} style={styles.subtitle} numberOfLines={1}>
-                Deliver to {order.clientAddress}
+                {deliverySubtitle}
               </Text>
             ) : null}
           </View>

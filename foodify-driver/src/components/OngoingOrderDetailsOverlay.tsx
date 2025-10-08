@@ -5,17 +5,20 @@ import type { OrderDto } from '../types/order';
 
 export interface OngoingOrderDetailsOverlayProps {
   onClose: () => void;
-  order: OrderDto | null;
+  order?: OrderDto | null;
 }
 
 export const OngoingOrderDetailsOverlay: React.FC<OngoingOrderDetailsOverlayProps> = ({
   onClose,
   order,
 }) => {
-  const totalItems = useMemo(
-    () => order?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0,
-    [order?.items],
-  );
+  const totalItems = useMemo(() => {
+    if (!order) {
+      return 0;
+    }
+
+    return order.items.reduce((sum, item) => sum + item.quantity, 0);
+  }, [order]);
 
   const formattedNotes = useMemo(() => {
     if (!order) {
@@ -34,12 +37,14 @@ export const OngoingOrderDetailsOverlay: React.FC<OngoingOrderDetailsOverlayProp
   }, [order]);
 
   const formattedTotal = useMemo(() => {
-    if (order?.total == null) {
+    if (!order || order.total == null) {
       return '—';
     }
 
     return `${order.total.toFixed(2)} dt`;
   }, [order?.total]);
+
+  const restaurantName = order?.restaurantName ?? 'Restaurant';
 
   return (
     <View pointerEvents="box-none" style={styles.container}>
@@ -68,8 +73,7 @@ export const OngoingOrderDetailsOverlay: React.FC<OngoingOrderDetailsOverlayProp
               </Text>
             </View>
             <Text allowFontScaling={false} style={styles.restaurantLabel}>
-              Products from{' '}
-              <Text style={styles.restaurantName}>{order?.restaurantName ?? 'Restaurant'}</Text>
+              Products from <Text style={styles.restaurantName}>{restaurantName}</Text>
             </Text>
           </View>
 
@@ -128,9 +132,7 @@ export const OngoingOrderDetailsOverlay: React.FC<OngoingOrderDetailsOverlayProp
             <Text allowFontScaling={false} style={styles.summaryLabel}>
               Total
             </Text>
-            <Text allowFontScaling={false} style={styles.summaryValue}>
-              {formattedTotal}
-            </Text>
+            <Text allowFontScaling={false} style={styles.summaryValue}>{formattedTotal}</Text>
           </View>
         </View>
       </View>
