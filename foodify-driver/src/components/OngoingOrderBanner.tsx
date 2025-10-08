@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ScanLine } from 'lucide-react-native';
 import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
+import type { OrderDto } from '../types/order';
 
 export interface OngoingOrderBannerProps {
+  order: OrderDto;
   onCallRestaurant?: () => void;
   onSeeOrderDetails?: () => void;
   onLookForDirection?: () => void;
@@ -11,11 +13,22 @@ export interface OngoingOrderBannerProps {
 }
 
 export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
+  order,
   onCallRestaurant,
   onSeeOrderDetails,
   onLookForDirection,
   onScanToPickup,
 }) => {
+  const totalItemsLabel = useMemo(() => {
+    const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
+
+    if (totalQuantity <= 0) {
+      return 'No items';
+    }
+
+    return `${totalQuantity} item${totalQuantity > 1 ? 's' : ''}`;
+  }, [order.items]);
+
   return (
     <View style={styles.container}>
       <TouchableOpacity
@@ -35,10 +48,27 @@ export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
 
       <View style={styles.card}>
         <View style={styles.row}>
-          <View style={styles.column}>
-            <Text allowFontScaling={false} style={styles.title}>
-              Your order
+          <View style={[styles.column, styles.orderInfo]}>
+            <Text allowFontScaling={false} style={styles.orderNumber}>
+              Order #{order.id}
             </Text>
+            {order.restaurantName ? (
+              <Text allowFontScaling={false} style={styles.title}>
+                {order.restaurantName}
+              </Text>
+            ) : (
+              <Text allowFontScaling={false} style={styles.title}>
+                Pickup order
+              </Text>
+            )}
+            <Text allowFontScaling={false} style={styles.subtitle}>
+              {totalItemsLabel}
+            </Text>
+            {order.clientAddress ? (
+              <Text allowFontScaling={false} style={styles.subtitle} numberOfLines={1}>
+                Deliver to {order.clientAddress}
+              </Text>
+            ) : null}
           </View>
           <TouchableOpacity
             activeOpacity={0.85}
@@ -139,10 +169,23 @@ const styles = StyleSheet.create({
   column: {
     flex: 1,
   },
+  orderInfo: {
+    gap: verticalScale(4),
+  },
+  orderNumber: {
+    fontSize: moderateScale(12),
+    fontWeight: '600',
+    color: '#64748B',
+    letterSpacing: moderateScale(0.4),
+  },
   title: {
     fontSize: moderateScale(18),
     fontWeight: '600',
     color: '#0F172A',
+  },
+  subtitle: {
+    fontSize: moderateScale(13),
+    color: '#475569',
   },
   primaryAction: {
     backgroundColor: '#D72128',

@@ -1,14 +1,46 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
+import type { OrderDto } from '../types/order';
 
 export interface OngoingOrderDetailsOverlayProps {
   onClose: () => void;
+  order: OrderDto | null;
 }
 
 export const OngoingOrderDetailsOverlay: React.FC<OngoingOrderDetailsOverlayProps> = ({
   onClose,
+  order,
 }) => {
+  const totalItems = useMemo(
+    () => order?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0,
+    [order?.items],
+  );
+
+  const formattedNotes = useMemo(() => {
+    if (!order) {
+      return 'No special instructions';
+    }
+
+    const notes = order.items
+      .map((item) => item.specialInstructions?.trim())
+      .filter((note): note is string => Boolean(note));
+
+    if (notes.length === 0) {
+      return 'No special instructions';
+    }
+
+    return notes.join('\n');
+  }, [order]);
+
+  const formattedTotal = useMemo(() => {
+    if (order?.total == null) {
+      return '—';
+    }
+
+    return `${order.total.toFixed(2)} dt`;
+  }, [order?.total]);
+
   return (
     <View pointerEvents="box-none" style={styles.container}>
       <View style={styles.card}>
@@ -32,24 +64,49 @@ export const OngoingOrderDetailsOverlay: React.FC<OngoingOrderDetailsOverlayProp
           <View style={styles.restaurantRow}>
             <View style={styles.productBadge}>
               <Text allowFontScaling={false} style={styles.productBadgeText}>
-                4
+                {totalItems}
               </Text>
             </View>
             <Text allowFontScaling={false} style={styles.restaurantLabel}>
-              Product from <Text style={styles.restaurantName}>The Hood</Text>
-            </Text>
-            <Text allowFontScaling={false} style={styles.dropdownIcon}>
-              ˅
+              Products from{' '}
+              <Text style={styles.restaurantName}>{order?.restaurantName ?? 'Restaurant'}</Text>
             </Text>
           </View>
 
+          {order?.items.length ? (
+            <View style={styles.section}>
+              <Text allowFontScaling={false} style={styles.sectionLabel}>
+                Items
+              </Text>
+              <View style={styles.itemsList}>
+                {order.items.map((item) => (
+                  <View key={`${item.menuItemId}-${item.menuItemName}`} style={styles.itemRow}>
+                    <Text allowFontScaling={false} style={styles.itemName}>
+                      {item.quantity}× {item.menuItemName}
+                    </Text>
+                    {item.extras.length > 0 ? (
+                      <Text allowFontScaling={false} style={styles.itemMeta}>
+                        Extras: {item.extras.join(', ')}
+                      </Text>
+                    ) : null}
+                    {item.specialInstructions ? (
+                      <Text allowFontScaling={false} style={styles.itemMeta}>
+                        Notes: {item.specialInstructions}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
           <View style={styles.section}>
             <Text allowFontScaling={false} style={styles.sectionLabel}>
-              Comment
+              Special Instructions
             </Text>
             <View style={styles.commentBox}>
               <Text allowFontScaling={false} style={styles.commentText}>
-                marquez le sandwich sans harissa
+                {formattedNotes}
               </Text>
             </View>
           </View>
@@ -60,23 +117,7 @@ export const OngoingOrderDetailsOverlay: React.FC<OngoingOrderDetailsOverlayProp
             </Text>
             <View style={styles.addressBox}>
               <Text allowFontScaling={false} style={styles.addressText}>
-                Rue Mustapha Abdessalem, Ariana 2091
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <Text allowFontScaling={false} style={styles.sectionLabel}>
-              Payment method
-            </Text>
-            <View style={styles.paymentRow}>
-              <View style={styles.paymentIcon}>
-                <Text allowFontScaling={false} style={styles.paymentIconText}>
-                  💳
-                </Text>
-              </View>
-              <Text allowFontScaling={false} style={styles.paymentText}>
-                Pay by Credit Card
+                {order?.clientAddress ?? 'Delivery address not provided'}
               </Text>
             </View>
           </View>
@@ -85,43 +126,10 @@ export const OngoingOrderDetailsOverlay: React.FC<OngoingOrderDetailsOverlayProp
 
           <View style={styles.summaryRow}>
             <Text allowFontScaling={false} style={styles.summaryLabel}>
-              Subtotal
-            </Text>
-            <Text allowFontScaling={false} style={styles.summaryValue}>
-              xx.00 dt
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text allowFontScaling={false} style={styles.summaryLabel}>
-              Fees
-            </Text>
-            <Text allowFontScaling={false} style={styles.summaryValue}>
-              xx.00 dt
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text allowFontScaling={false} style={styles.summaryLabel}>
-              Delivery
-            </Text>
-            <Text allowFontScaling={false} style={styles.summaryValue}>
-              xx.00 dt
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text allowFontScaling={false} style={styles.summaryLabel}>
-              Tips
-            </Text>
-            <Text allowFontScaling={false} style={styles.summaryValue}>
-              xx.00 dt
-            </Text>
-          </View>
-
-          <View style={styles.totalRow}>
-            <Text allowFontScaling={false} style={styles.totalLabel}>
               Total
             </Text>
-            <Text allowFontScaling={false} style={styles.totalValue}>
-              xx.00 dt
+            <Text allowFontScaling={false} style={styles.summaryValue}>
+              {formattedTotal}
             </Text>
           </View>
         </View>
@@ -211,11 +219,6 @@ const styles = StyleSheet.create({
   restaurantName: {
     color: '#CA251B',
   },
-  dropdownIcon: {
-    fontSize: moderateScale(14),
-    color: '#CA251B',
-    marginLeft: scale(12),
-  },
   section: {
     marginTop: verticalScale(4),
   },
@@ -224,6 +227,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#9CA3AF',
     marginBottom: verticalScale(6),
+  },
+  itemsList: {
+    gap: verticalScale(12),
+  },
+  itemRow: {
+    gap: verticalScale(4),
+  },
+  itemName: {
+    fontSize: moderateScale(14),
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  itemMeta: {
+    fontSize: moderateScale(13),
+    color: '#475569',
   },
   commentBox: {
     backgroundColor: '#F3F4F6',
@@ -252,36 +270,6 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(13),
     color: '#1F2937',
   },
-  paymentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: moderateScale(14),
-    paddingHorizontal: moderateScale(16),
-    paddingVertical: verticalScale(12),
-    gap: scale(12),
-  },
-  paymentIcon: {
-    width: moderateScale(34),
-    height: moderateScale(34),
-    borderRadius: moderateScale(10),
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: 'rgba(15, 23, 42, 0.08)',
-    shadowOffset: { width: 0, height: verticalScale(4) },
-    shadowOpacity: 1,
-    shadowRadius: moderateScale(8),
-    elevation: moderateScale(4),
-  },
-  paymentIconText: {
-    fontSize: moderateScale(16),
-  },
-  paymentText: {
-    fontSize: moderateScale(13),
-    color: '#1F2937',
-    fontWeight: '600',
-  },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: '#E5E7EB',
@@ -292,28 +280,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   summaryLabel: {
-    fontSize: moderateScale(13),
-    color: '#6B7280',
+    fontSize: moderateScale(14),
+    fontWeight: '600',
+    color: '#1F2937',
   },
   summaryValue: {
-    fontSize: moderateScale(13),
-    color: '#6B7280',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: verticalScale(4),
-    paddingTop: verticalScale(6),
-  },
-  totalLabel: {
-    fontSize: moderateScale(16),
-    fontWeight: '700',
-    color: '#111827',
-  },
-  totalValue: {
-    fontSize: moderateScale(16),
-    fontWeight: '700',
-    color: '#CA251B',
+    fontSize: moderateScale(14),
+    fontWeight: '600',
+    color: '#1F2937',
   },
 });
 

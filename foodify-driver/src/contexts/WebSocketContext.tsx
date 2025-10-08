@@ -12,12 +12,14 @@ import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuth } from './AuthContext';
 import { ENV } from '../constants/env';
-import { OrderDto } from '../types/order';
+import { OrderDto, OrderStatus } from '../types/order';
 
 interface WebSocketContextValue {
   isConnected: boolean;
   incomingOrder: OrderDto | null;
+  ongoingOrder: OrderDto | null;
   clearIncomingOrder: () => void;
+  setOngoingOrder: (order: OrderDto | null) => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | undefined>(undefined);
@@ -27,6 +29,7 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
   const clientRef = useRef<Client | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [incomingOrder, setIncomingOrder] = useState<OrderDto | null>(null);
+  const [ongoingOrder, setOngoingOrder] = useState<OrderDto | null>(null);
 
 
 
@@ -38,6 +41,7 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
       }
       setIsConnected(false);
       setIncomingOrder(null);
+      setOngoingOrder(null);
       return;
     }
 
@@ -69,9 +73,20 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
           if (data.upcoming) {
             console.log('This is an upcoming order we should display the overlay');
             setIncomingOrder(data);
+            setOngoingOrder(null);
           } else {
             console.log('This means we are in an ongoing order and the order status changed');
             setIncomingOrder(null);
+            const isCompleted =
+              data.status === OrderStatus.DELIVERED ||
+              data.status === OrderStatus.CANCELED ||
+              data.status === OrderStatus.REJECTED;
+
+            if (isCompleted) {
+              setOngoingOrder(null);
+            } else {
+              setOngoingOrder(data);
+            }
           }
         } catch {
           console.warn('Received non-JSON message from /user/queue/orders:', message.body);
@@ -83,6 +98,7 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
       console.log('❌ STOMP disconnected');
       setIsConnected(false);
       setIncomingOrder(null);
+      setOngoingOrder(null);
     };
 
     stompClient.onStompError = (frame) => {
@@ -97,6 +113,7 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
       clientRef.current = null;
       setIsConnected(false);
       setIncomingOrder(null);
+      setOngoingOrder(null);
     };
   }, [accessToken, user?.id]);
 
@@ -104,13 +121,22 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
     setIncomingOrder(null);
   }, []);
 
+  const handleSetOngoingOrder = useCallback((order: OrderDto | null) => {
+    setOngoingOrder(order);
+    if (order) {
+      setIncomingOrder(null);
+    }
+  }, []);
+
   const value = useMemo<WebSocketContextValue>(
     () => ({
       isConnected,
       incomingOrder,
+      ongoingOrder,
       clearIncomingOrder,
+      setOngoingOrder: handleSetOngoingOrder,
     }),
-    [clearIncomingOrder, incomingOrder, isConnected],
+    [clearIncomingOrder, handleSetOngoingOrder, incomingOrder, isConnected, ongoingOrder],
   );
 
   return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>;

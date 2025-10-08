@@ -3,6 +3,8 @@ import {
   Alert,
   Animated,
   Easing,
+  Linking,
+  Platform,
   StyleSheet,
   Switch,
   Text,
@@ -20,6 +22,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useWebSocketContext } from '../../contexts/WebSocketContext';
 import {
   getCurrentDriverShift,
+  acceptOrder,
   updateDriverAvailability,
   updateDriverLocation,
 } from '../../services/driverService';
@@ -105,19 +108,19 @@ export const DashboardScreen: React.FC = () => {
     }),
   );
   const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(false);
-  const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
   const [currentShift, setCurrentShift] = useState<DriverShift | null>(null);
   const [isUpdatingShift, setIsUpdatingShift] = useState<boolean>(false);
+  const [isAcceptingOrder, setIsAcceptingOrder] = useState<boolean>(false);
   const hasActiveShift =
     currentShift?.status === DriverShiftStatus.ACTIVE && Boolean(currentShift.startedAt);
   const goPulse = useRef(new Animated.Value(0)).current;
   const instes = useSafeAreaInsets();
   const shiftUpdateSequenceRef = useRef(0);
   const isMountedRef = useRef(true);
-  const { incomingOrder, clearIncomingOrder } = useWebSocketContext();
+  const { incomingOrder, ongoingOrder, clearIncomingOrder, setOngoingOrder } = useWebSocketContext();
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -136,6 +139,13 @@ export const DashboardScreen: React.FC = () => {
 
     setIncomingOrderVisible(false);
   }, [incomingOrder]);
+
+  useEffect(() => {
+    if (!ongoingOrder) {
+      setOrderDetailsVisible(false);
+      setScanOverlayVisible(false);
+    }
+  }, [ongoingOrder]);
 
   const applyShiftUpdate = useCallback(
     (shift: DriverShift | null, expectedSequence?: number) => {
@@ -379,8 +389,9 @@ export const DashboardScreen: React.FC = () => {
   useEffect(() => {
     if (incomingCountdown <= 0) {
       setIncomingOrderVisible(false);
+      clearIncomingOrder();
     }
-  }, [incomingCountdown]);
+  }, [incomingCountdown, clearIncomingOrder]);
 
   const shiftFinishableDisplay = useMemo(() => {
     if (!currentShift?.finishableAt) {
@@ -415,6 +426,27 @@ export const DashboardScreen: React.FC = () => {
       date: dateString,
     };
   }, [currentShift?.finishableAt]);
+
+  const incomingOrderOverlayContent = useMemo(() => {
+    if (!incomingOrder) {
+      return {
+        label: 'New Order',
+        subtitle: 'You have a new pickup request',
+      };
+    }
+
+    const label = incomingOrder.restaurantName ?? `Order #${incomingOrder.id}`;
+
+    let subtitle = 'You have a new pickup request';
+
+    if (incomingOrder.clientAddress) {
+      subtitle = `Deliver to ${incomingOrder.clientAddress}`;
+    } else if (incomingOrder.restaurantAddress) {
+      subtitle = `Pickup at ${incomingOrder.restaurantAddress}`;
+    }
+
+    return { label, subtitle };
+  }, [incomingOrder]);
 
   const handleStartShift = useCallback(async () => {
     if (isUpdatingShift) {
@@ -494,34 +526,81 @@ export const DashboardScreen: React.FC = () => {
     ],
   );
 
-  const handleAcceptOrder = useCallback(() => {
-    setIncomingOrderVisible(false);
-    setOngoingOrderVisible(true);
-    clearIncomingOrder();
-  }, [clearIncomingOrder]);
+  const handleAcceptOrder = useCallback(async () => {
+    if (!incomingOrder || isAcceptingOrder) {
+      return;
+    }
+
+    setIsAcceptingOrder(true);
+
+    try {
+      const acceptedOrder = await acceptOrder(incomingOrder.id);
+      setOngoingOrder(acceptedOrder);
+      setIncomingOrderVisible(false);
+      clearIncomingOrder();
+    } catch (error) {
+      console.warn('[Dashboard] Failed to accept order', error);
+      Alert.alert('Unable to accept order', 'Please try again in a moment.');
+    } finally {
+      setIsAcceptingOrder(false);
+    }
+  }, [acceptOrder, clearIncomingOrder, incomingOrder, isAcceptingOrder, setOngoingOrder]);
 
   const handleDeclineOrder = useCallback(() => {
     setIncomingOrderVisible(false);
-    setOngoingOrderVisible(false);
     clearIncomingOrder();
   }, [clearIncomingOrder]);
 
   const handleCallRestaurant = useCallback(() => {
-    console.log('Call Restaurant pressed');
-  }, []);
+    const phoneNumber = ongoingOrder?.restaurantPhone?.replace(/\s+/g, '');
+
+    if (!phoneNumber) {
+      Alert.alert('Call unavailable', 'Restaurant phone number is not available.');
+      return;
+    }
+
+    Linking.openURL(`tel:${phoneNumber}`).catch(() => {
+      Alert.alert('Call unavailable', 'Unable to start a phone call on this device.');
+    });
+  }, [ongoingOrder?.restaurantPhone]);
 
   const handleSeeOrderDetails = useCallback(() => {
-    console.log('See order details pressed');
+    if (!ongoingOrder) {
+      return;
+    }
+
     setOrderDetailsVisible(true);
-  }, []);
+  }, [ongoingOrder]);
 
   const handleLookForDirection = useCallback(() => {
-    console.log('Look for direction pressed');
-  }, []);
+    const destination = ongoingOrder?.restaurantLocation ?? ongoingOrder?.clientLocation;
+
+    if (!destination) {
+      Alert.alert('Directions unavailable', 'No destination is available yet.');
+      return;
+    }
+
+    const { lat, lng } = destination;
+    const label = encodeURIComponent(
+      ongoingOrder?.restaurantName ?? ongoingOrder?.clientAddress ?? 'Destination',
+    );
+    const url =
+      Platform.OS === 'ios'
+        ? `maps:0,0?q=${label}@${lat},${lng}`
+        : `geo:0,0?q=${lat},${lng}(${label})`;
+
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Directions unavailable', 'Unable to open maps on this device.');
+    });
+  }, [ongoingOrder]);
 
   const handleScanToPickup = useCallback(() => {
+    if (!ongoingOrder) {
+      return;
+    }
+
     setScanOverlayVisible(true);
-  }, []);
+  }, [ongoingOrder]);
 
   const handleCloseOrderDetails = useCallback(() => {
     setOrderDetailsVisible(false);
@@ -652,8 +731,9 @@ export const DashboardScreen: React.FC = () => {
                   )}
                 </View>
               )}
-              {isOngoingOrderVisible ? (
+              {ongoingOrder ? (
                 <OngoingOrderBanner
+                  order={ongoingOrder}
                   onCallRestaurant={handleCallRestaurant}
                   onSeeOrderDetails={handleSeeOrderDetails}
                   onLookForDirection={handleLookForDirection}
@@ -674,7 +754,7 @@ export const DashboardScreen: React.FC = () => {
                         { opacity: goGlowOpacity, transform: [{ scale: goGlowScale }] },
                       ]}
                     />
-                    <Animated.View style={[styles.goButton, { transform: [{ scale: goScale }] }]}>
+                    <Animated.View style={[styles.goButton, { transform: [{ scale: goScale }] }]}> 
                       <Animated.View style={[styles.goInnerPulse, { opacity: goInnerOpacity }]} />
                       <View style={styles.goRing}>
                         <Text allowFontScaling={false} style={styles.goLabel}>
@@ -720,15 +800,15 @@ export const DashboardScreen: React.FC = () => {
               countdownSeconds={incomingCountdown}
               onAccept={handleAcceptOrder}
               onDecline={handleDeclineOrder}
-              orderLabel="New Order"
-              subtitle="You have a new pickup request"
+              orderLabel={incomingOrderOverlayContent.label}
+              subtitle={incomingOrderOverlayContent.subtitle}
             />
           </>
         )}
         {isOrderDetailsVisible && (
           <>
             <PlatformBlurView intensity={45} tint="dark" style={styles.blurOverlay} />
-            <OngoingOrderDetailsOverlay onClose={handleCloseOrderDetails} />
+            <OngoingOrderDetailsOverlay onClose={handleCloseOrderDetails} order={ongoingOrder} />
           </>
         )}
         {isScanOverlayVisible && (
