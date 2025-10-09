@@ -1,5 +1,5 @@
 import { apiClient } from './api';
-import type { DriverShift } from '../types/shift';
+import type { DriverShift, DriverShiftBalance } from '../types/shift';
 import type { OrderDto } from '../types/order';
 
 type UpdateDriverLocationPayload = {
@@ -22,6 +22,14 @@ export const updateDriverLocation = async ({
 
 export const getCurrentDriverShift = async (): Promise<DriverShift | null> => {
   const response = await apiClient.get<DriverShift | null>('/api/driver/shift');
+
+  return response.data;
+};
+
+export const getCurrentDriverShiftBalance = async (): Promise<DriverShiftBalance | null> => {
+  const response = await apiClient.get<DriverShiftBalance | null>(
+    '/api/driver/shift/balance',
+  );
 
   return response.data;
 };

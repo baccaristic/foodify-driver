@@ -26,6 +26,7 @@ import {
   confirmOrderDelivery,
   getDriverOngoingOrder,
   getCurrentDriverShift,
+  getCurrentDriverShiftBalance,
   markOrderAsPickedUp,
   updateDriverAvailability,
   updateDriverLocation,
@@ -177,6 +178,7 @@ export const DashboardScreen: React.FC = () => {
   >(null);
   const [currentShift, setCurrentShift] = useState<DriverShift | null>(null);
   const [isUpdatingShift, setIsUpdatingShift] = useState<boolean>(false);
+  const [shiftBalance, setShiftBalance] = useState<number | null>(null);
   const hasActiveShift =
     currentShift?.status === DriverShiftStatus.ACTIVE && Boolean(currentShift.startedAt);
   const goPulse = useRef(new Animated.Value(0)).current;
@@ -194,6 +196,19 @@ export const DashboardScreen: React.FC = () => {
       ongoingStatus === OrderStatus.READY_FOR_PICK_UP,
     [ongoingStatus],
   );
+
+  const shiftBalanceDisplay = useMemo(() => {
+    if (shiftBalance === null) {
+      return '0,00 DT';
+    }
+
+    const formatted = shiftBalance.toLocaleString('fr-FR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    return `${formatted} DT`;
+  }, [shiftBalance]);
 
   const callLabel = shouldCallRestaurant ? 'Call Restaurant' : 'Call Client';
   const callPhone = shouldCallRestaurant
@@ -425,6 +440,32 @@ export const DashboardScreen: React.FC = () => {
     }
   }, [accessToken, hasHydrated]);
 
+  const refreshShiftBalance = useCallback(async () => {
+    try {
+      const balance = await getCurrentDriverShiftBalance();
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      const rawTotal = balance?.currentTotal ?? null;
+      const normalizedTotal =
+        typeof rawTotal === 'number'
+          ? rawTotal
+          : typeof rawTotal === 'string'
+            ? Number(rawTotal.replace(',', '.'))
+            : null;
+
+      setShiftBalance(
+        typeof normalizedTotal === 'number' && Number.isFinite(normalizedTotal)
+          ? normalizedTotal
+          : null,
+      );
+    } catch (error) {
+      console.warn('[Dashboard] Failed to fetch shift balance', error);
+    }
+  }, []);
+
   useEffect(() => {
     if (!hasHydrated) {
       return;
@@ -432,6 +473,19 @@ export const DashboardScreen: React.FC = () => {
 
     void syncOngoingOrder();
   }, [hasHydrated, syncOngoingOrder]);
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    if (!accessToken) {
+      setShiftBalance(null);
+      return;
+    }
+
+    void refreshShiftBalance();
+  }, [accessToken, hasHydrated, refreshShiftBalance]);
 
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
@@ -918,6 +972,7 @@ export const DashboardScreen: React.FC = () => {
             message: 'The delivery has been confirmed successfully.',
           });
           await syncOngoingOrder();
+          await refreshShiftBalance();
         } else {
           setResultModal({
             status: 'error',
@@ -947,7 +1002,7 @@ export const DashboardScreen: React.FC = () => {
         setIsProcessingDelivery(false);
       }
     },
-    [isProcessingDelivery, ongoingOrder?.id, syncOngoingOrder],
+    [isProcessingDelivery, ongoingOrder?.id, refreshShiftBalance, syncOngoingOrder],
   );
 
   const handleCloseOrderDetails = useCallback(() => {
@@ -1112,7 +1167,7 @@ export const DashboardScreen: React.FC = () => {
 
               <View style={styles.balancePill}>
                 <Text allowFontScaling={false} style={styles.balanceLabel}>
-                  0,00 DT
+                  {shiftBalanceDisplay}
                 </Text>
               </View>
 
