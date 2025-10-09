@@ -300,7 +300,10 @@ export const DashboardScreen: React.FC = () => {
   const confirmAvailabilityRef = useRef(isConfirmDeliveryVisible);
   const incomingOrderSoundRef = useRef<Audio.Sound | null>(null);
   const statusSoundRef = useRef<Audio.Sound | null>(null);
-  const previousOngoingStatusRef = useRef<OrderStatus | null>(null);
+  const previousOngoingStatusRef = useRef<{ id: number | null; status: OrderStatus | null }>({
+    id: null,
+    status: null,
+  });
 
   const navigationTarget = useMemo(() => {
     if (!ongoingOrder) {
@@ -475,7 +478,7 @@ export const DashboardScreen: React.FC = () => {
         const { sound } = await Audio.Sound.createAsync(
           require('../../../assets/sounds/incomming-order-sound.mp3'),
           {
-            isLooping: false,
+            isLooping: true,
             volume: 1,
           },
         );
@@ -489,23 +492,48 @@ export const DashboardScreen: React.FC = () => {
     }
   }, []);
 
+  const stopStatusChangeSound = useCallback(async () => {
+    try {
+      if (!statusSoundRef.current) {
+        return;
+      }
+
+      await statusSoundRef.current.stopAsync();
+    } catch (error) {
+      console.warn('Unable to stop status update sound', error);
+    }
+  }, []);
+
   useEffect(() => {
     const currentStatus = ongoingOrder?.status ?? null;
-    const previousStatus = previousOngoingStatusRef.current;
+    const currentOrderId = ongoingOrder?.id ?? null;
+    const previousStatus = previousOngoingStatusRef.current.status;
+    const previousOrderId = previousOngoingStatusRef.current.id;
 
-    if (currentStatus === previousStatus) {
+    if (currentStatus === previousStatus && currentOrderId === previousOrderId) {
       return;
     }
 
-    previousOngoingStatusRef.current = currentStatus;
+    previousOngoingStatusRef.current = {
+      id: currentOrderId,
+      status: currentStatus,
+    };
 
     if (!currentStatus) {
       setStatusOverlay(null);
+      void stopStatusChangeSound();
       return;
     }
 
     if (currentStatus === OrderStatus.DELIVERED) {
       setStatusOverlay(null);
+      void stopStatusChangeSound();
+      return;
+    }
+
+    if (currentStatus !== OrderStatus.READY_FOR_PICK_UP) {
+      setStatusOverlay(null);
+      void stopStatusChangeSound();
       return;
     }
 
@@ -513,23 +541,12 @@ export const DashboardScreen: React.FC = () => {
 
     setStatusOverlay(content);
     playStatusChangeSound();
-  }, [ongoingOrder, playStatusChangeSound]);
-
-  useEffect(() => {
-    if (!statusOverlay) {
-      return undefined;
-    }
-
-    const timeout = setTimeout(() => {
-      setStatusOverlay(null);
-    }, 6000);
-
-    return () => clearTimeout(timeout);
-  }, [statusOverlay]);
+  }, [ongoingOrder, playStatusChangeSound, stopStatusChangeSound]);
 
   const handleDismissStatusOverlay = useCallback(() => {
+    void stopStatusChangeSound();
     setStatusOverlay(null);
-  }, []);
+  }, [stopStatusChangeSound]);
 
   useEffect(() => {
     const hasOrder = Boolean(ongoingOrder);
