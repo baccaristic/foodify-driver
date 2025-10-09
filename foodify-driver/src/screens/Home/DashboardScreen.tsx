@@ -476,7 +476,7 @@ export const DashboardScreen: React.FC = () => {
     try {
       if (!statusSoundRef.current) {
         const { sound } = await Audio.Sound.createAsync(
-          require('../../../assets/sounds/incomming-order-sound.mp3'),
+          require('../../../assets/sounds/order-ready-sound.mp3'),
           {
             isLooping: true,
             volume: 1,
