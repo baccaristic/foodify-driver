@@ -17,6 +17,7 @@ import MapView, { AnimatedRegion, MarkerAnimated, Region } from 'react-native-ma
 import type { default as MapViewType } from 'react-native-maps/lib/MapView';
 import * as Location from 'expo-location';
 import { BarcodeScanningResult } from 'expo-camera';
+import { Audio } from 'expo-av';
 import { PlatformBlurView } from '../../components/PlatformBlurView';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -221,6 +222,7 @@ export const DashboardScreen: React.FC = () => {
 
   const scanAvailabilityRef = useRef(isScanToPickupVisible);
   const confirmAvailabilityRef = useRef(isConfirmDeliveryVisible);
+  const incomingOrderSoundRef = useRef<Audio.Sound | null>(null);
 
   const navigationTarget = useMemo(() => {
     if (!ongoingOrder) {
@@ -288,6 +290,68 @@ export const DashboardScreen: React.FC = () => {
 
     return 'You have a new pickup request';
   }, [pendingIncomingOrder]);
+
+  useEffect(() => {
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+    }).catch((error) => {
+      console.warn('Unable to configure audio mode', error);
+    });
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const ensurePlaybackState = async () => {
+      try {
+        if (isIncomingOrderVisible) {
+          if (!incomingOrderSoundRef.current) {
+            const { sound } = await Audio.Sound.createAsync(
+              require('../../../assets/sounds/incomming-order-sound.mp3'),
+              {
+                isLooping: true,
+                volume: 1,
+              },
+            );
+
+            if (!isActive) {
+              await sound.stopAsync().catch(() => undefined);
+              await sound.unloadAsync().catch(() => undefined);
+              return;
+            }
+
+            incomingOrderSoundRef.current = sound;
+          }
+
+          if (incomingOrderSoundRef.current) {
+            await incomingOrderSoundRef.current.replayAsync();
+          }
+        } else if (incomingOrderSoundRef.current) {
+          await incomingOrderSoundRef.current.stopAsync();
+        }
+      } catch (error) {
+        console.warn('Unable to manage incoming order sound', error);
+      }
+    };
+
+    ensurePlaybackState();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isIncomingOrderVisible]);
+
+  useEffect(() => () => {
+    const sound = incomingOrderSoundRef.current;
+    incomingOrderSoundRef.current = null;
+
+    if (sound) {
+      sound.stopAsync().catch(() => undefined);
+      sound.unloadAsync().catch(() => undefined);
+    }
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
