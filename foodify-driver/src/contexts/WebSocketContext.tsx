@@ -16,6 +16,9 @@ import { OrderDto } from '../types/order';
 
 interface WebSocketContextValue {
   isConnected: boolean;
+  upcomingOrder: OrderDto | null;
+  clearUpcomingOrder: () => void;
+  ongoingOrderUpdate: OrderDto | null;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | undefined>(undefined);
@@ -24,6 +27,8 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
   const { accessToken, user } = useAuth();
   const clientRef = useRef<Client | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [upcomingOrder, setUpcomingOrder] = useState<OrderDto | null>(null);
+  const [ongoingOrderUpdate, setOngoingOrderUpdate] = useState<OrderDto | null>(null);
 
 
 
@@ -34,6 +39,8 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
         clientRef.current = null;
       }
       setIsConnected(false);
+      setUpcomingOrder(null);
+      setOngoingOrderUpdate(null);
       return;
     }
 
@@ -63,10 +70,9 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
           const data = JSON.parse(message.body) as OrderDto;
           console.log('📦 Received order update:', data);
           if (data.upcoming) {
-            console.log("This is an upcoming order we should display the overlay")
-          }
-          else {
-            console.log("This means we are in an ongoing order and the order status changed");
+            setUpcomingOrder(data);
+          } else {
+            setOngoingOrderUpdate(data);
           }
         } catch {
           console.warn('Received non-JSON message from /user/queue/orders:', message.body);
@@ -90,13 +96,23 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
       stompClient.deactivate();
       clientRef.current = null;
       setIsConnected(false);
+      setUpcomingOrder(null);
+      setOngoingOrderUpdate(null);
     };
   }, [accessToken, user?.id]);
+
+  const clearUpcomingOrder = useCallback(() => {
+    setUpcomingOrder(null);
+  }, []);
+
   const value = useMemo<WebSocketContextValue>(
     () => ({
       isConnected,
+      upcomingOrder,
+      clearUpcomingOrder,
+      ongoingOrderUpdate,
     }),
-    [isConnected],
+    [clearUpcomingOrder, isConnected, ongoingOrderUpdate, upcomingOrder],
   );
 
   return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>;

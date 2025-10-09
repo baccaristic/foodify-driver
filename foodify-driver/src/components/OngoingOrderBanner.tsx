@@ -3,6 +3,19 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ScanLine } from 'lucide-react-native';
 import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 
+const formatOrderStatus = (status?: string | null) => {
+  if (!status) {
+    return null;
+  }
+
+  return status
+    .toLowerCase()
+    .split('_')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 export interface OngoingOrderBannerProps {
   callLabel?: string;
   onCallContact?: () => void;
@@ -13,6 +26,12 @@ export interface OngoingOrderBannerProps {
   isScanToPickupVisible?: boolean;
   onConfirmDelivery?: () => void;
   isConfirmDeliveryVisible?: boolean;
+  orderId?: number | null;
+  restaurantName?: string | null;
+  clientName?: string | null;
+  clientAddress?: string | null;
+  orderTotal?: number | null;
+  orderStatus?: string | null;
 }
 
 export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
@@ -25,7 +44,33 @@ export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
   isScanToPickupVisible = false,
   onConfirmDelivery,
   isConfirmDeliveryVisible = false,
+  orderId = null,
+  restaurantName = null,
+  clientName = null,
+  clientAddress = null,
+  orderTotal = null,
+  orderStatus = null,
 }) => {
+  const hasOrderId = typeof orderId === 'number' && orderId > 0;
+  const normalizedRestaurantName = restaurantName?.trim() || null;
+  const normalizedClientName = clientName?.trim() || null;
+  const normalizedClientAddress = clientAddress?.trim() || null;
+  const formattedStatus = formatOrderStatus(orderStatus);
+  const formattedTotal =
+    typeof orderTotal === 'number' && !Number.isNaN(orderTotal)
+      ? `${orderTotal.toFixed(2)} DT`
+      : null;
+
+  const hasOrderInfo =
+    hasOrderId ||
+    Boolean(
+      formattedStatus ||
+        normalizedRestaurantName ||
+        normalizedClientName ||
+        normalizedClientAddress ||
+        formattedTotal,
+    );
+
   return (
     <View style={styles.container}>
       <TouchableOpacity
@@ -61,6 +106,47 @@ export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
             </Text>
           </TouchableOpacity>
         </View>
+
+        {hasOrderInfo && (
+          <View style={styles.infoSection}>
+            {hasOrderId && (
+              <Text allowFontScaling={false} style={styles.infoText}>
+                Order <Text style={styles.infoHighlight}>#{orderId}</Text>
+              </Text>
+            )}
+            {formattedStatus && (
+              <View style={styles.statusBadge}>
+                <Text allowFontScaling={false} style={styles.statusText}>
+                  {formattedStatus}
+                </Text>
+              </View>
+            )}
+            {normalizedRestaurantName && (
+              <Text allowFontScaling={false} style={styles.infoText}>
+                Pickup from <Text style={styles.infoHighlight}>{normalizedRestaurantName}</Text>
+              </Text>
+            )}
+            {normalizedClientName && (
+              <Text allowFontScaling={false} style={styles.infoText}>
+                Deliver to <Text style={styles.infoHighlight}>{normalizedClientName}</Text>
+              </Text>
+            )}
+            {normalizedClientAddress && (
+              <Text
+                allowFontScaling={false}
+                style={[styles.infoText, styles.infoAddress]}
+                numberOfLines={2}
+              >
+                {normalizedClientAddress}
+              </Text>
+            )}
+            {formattedTotal && (
+              <Text allowFontScaling={false} style={styles.infoText}>
+                Total <Text style={styles.infoHighlight}>{formattedTotal}</Text>
+              </Text>
+            )}
+          </View>
+        )}
 
         <View style={[styles.row, styles.bottomRow]}>
           <TouchableOpacity
@@ -184,6 +270,34 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(13),
     fontWeight: '600',
     textAlign: 'center',
+  },
+  infoSection: {
+    marginTop: verticalScale(12),
+    gap: verticalScale(6),
+  },
+  infoText: {
+    color: '#0F172A',
+    fontSize: moderateScale(12),
+  },
+  infoHighlight: {
+    color: '#0B3C81',
+    fontWeight: '600',
+  },
+  infoAddress: {
+    color: '#475569',
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(11, 60, 129, 0.08)',
+    borderRadius: moderateScale(12),
+    paddingVertical: verticalScale(4),
+    paddingHorizontal: scale(10),
+  },
+  statusText: {
+    color: '#0B3C81',
+    fontSize: moderateScale(11),
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   secondaryAction: {
     backgroundColor: '#0B3C81',
