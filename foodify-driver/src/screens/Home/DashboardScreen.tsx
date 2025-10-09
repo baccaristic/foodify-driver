@@ -38,6 +38,7 @@ import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetails
 import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
 import { ConfirmDeliveryOverlay } from '../../components/ConfirmDeliveryOverlay';
 import { ActionResultModal } from '../../components/ActionResultModal';
+import { OngoingOrderStatusOverlay } from '../../components/OngoingOrderStatusOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DriverShift, DriverShiftStatus } from '../../types/shift';
 import { OrderDto, OrderStatus } from '../../types/order';
@@ -100,6 +101,80 @@ const DEFAULT_REGION = {
 };
 
 const INCOMING_ORDER_COUNTDOWN_SECONDS = 89;
+
+type StatusOverlayContent = {
+  badgeLabel: string;
+  title: string;
+  message: string;
+};
+
+const formatStatusLabel = (status: OrderStatus) =>
+  status
+    .toLowerCase()
+    .split('_')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+const buildStatusOverlayContent = (order: OrderDto | null, status: OrderStatus): StatusOverlayContent => {
+  const orderLabel = order?.id ? `Order #${order.id}` : 'Order update';
+  const restaurantName = order?.restaurantName?.trim();
+
+  switch (status) {
+    case OrderStatus.ACCEPTED:
+      return {
+        badgeLabel: orderLabel,
+        title: 'Order accepted',
+        message: `${orderLabel} has been accepted. Get ready to head to the restaurant.`,
+      };
+    case OrderStatus.PREPARING:
+      return {
+        badgeLabel: orderLabel,
+        title: 'Order preparing',
+        message: `${restaurantName ?? 'The restaurant'} is preparing ${orderLabel.toLowerCase()}.`,
+      };
+    case OrderStatus.READY_FOR_PICK_UP:
+      return {
+        badgeLabel: orderLabel,
+        title: 'Ready for pickup',
+        message: `${orderLabel} is ready for pickup${
+          restaurantName ? ` at ${restaurantName}` : ''
+        }.`,
+      };
+    case OrderStatus.IN_DELIVERY:
+      return {
+        badgeLabel: orderLabel,
+        title: 'On the way',
+        message: `${orderLabel} is now out for delivery. Keep the customer updated.`,
+      };
+    case OrderStatus.PENDING:
+      return {
+        badgeLabel: orderLabel,
+        title: 'Awaiting confirmation',
+        message: `${orderLabel} is waiting for the restaurant to confirm.`,
+      };
+    case OrderStatus.REJECTED:
+      return {
+        badgeLabel: orderLabel,
+        title: 'Order rejected',
+        message: `${orderLabel} was rejected by the restaurant.`,
+      };
+    case OrderStatus.CANCELED:
+      return {
+        badgeLabel: orderLabel,
+        title: 'Order canceled',
+        message: `${orderLabel} was canceled.`,
+      };
+    default: {
+      const formattedStatus = formatStatusLabel(status);
+      return {
+        badgeLabel: orderLabel,
+        title: formattedStatus,
+        message: `${orderLabel} is now ${formattedStatus.toLowerCase()}.`,
+      };
+    }
+  }
+};
 
 const EMPTY_ONGOING_ORDER_PLACEHOLDER: OrderDto = {
   id: 0,
@@ -177,6 +252,7 @@ export const DashboardScreen: React.FC = () => {
       }
     | null
   >(null);
+  const [statusOverlay, setStatusOverlay] = useState<StatusOverlayContent | null>(null);
   const [currentShift, setCurrentShift] = useState<DriverShift | null>(null);
   const [isUpdatingShift, setIsUpdatingShift] = useState<boolean>(false);
   const [shiftBalance, setShiftBalance] = useState<number | null>(null);
@@ -223,6 +299,8 @@ export const DashboardScreen: React.FC = () => {
   const scanAvailabilityRef = useRef(isScanToPickupVisible);
   const confirmAvailabilityRef = useRef(isConfirmDeliveryVisible);
   const incomingOrderSoundRef = useRef<Audio.Sound | null>(null);
+  const statusSoundRef = useRef<Audio.Sound | null>(null);
+  const previousOngoingStatusRef = useRef<OrderStatus | null>(null);
 
   const navigationTarget = useMemo(() => {
     if (!ongoingOrder) {
@@ -362,6 +440,18 @@ export const DashboardScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    return () => {
+      const sound = statusSoundRef.current;
+      statusSoundRef.current = null;
+
+      if (sound) {
+        sound.stopAsync().catch(() => undefined);
+        sound.unloadAsync().catch(() => undefined);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!upcomingOrder || !upcomingOrder.upcoming) {
       return;
     }
@@ -378,6 +468,68 @@ export const DashboardScreen: React.FC = () => {
 
     setOngoingOrder(ongoingOrderUpdate);
   }, [ongoingOrderUpdate]);
+
+  const playStatusChangeSound = useCallback(async () => {
+    try {
+      if (!statusSoundRef.current) {
+        const { sound } = await Audio.Sound.createAsync(
+          require('../../../assets/sounds/incomming-order-sound.mp3'),
+          {
+            isLooping: false,
+            volume: 1,
+          },
+        );
+
+        statusSoundRef.current = sound;
+      }
+
+      await statusSoundRef.current?.replayAsync();
+    } catch (error) {
+      console.warn('Unable to play status update sound', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const currentStatus = ongoingOrder?.status ?? null;
+    const previousStatus = previousOngoingStatusRef.current;
+
+    if (currentStatus === previousStatus) {
+      return;
+    }
+
+    previousOngoingStatusRef.current = currentStatus;
+
+    if (!currentStatus) {
+      setStatusOverlay(null);
+      return;
+    }
+
+    if (currentStatus === OrderStatus.DELIVERED) {
+      setStatusOverlay(null);
+      return;
+    }
+
+    const content = buildStatusOverlayContent(ongoingOrder, currentStatus);
+
+    setStatusOverlay(content);
+    playStatusChangeSound();
+  }, [ongoingOrder, playStatusChangeSound]);
+
+  useEffect(() => {
+    if (!statusOverlay) {
+      return undefined;
+    }
+
+    const timeout = setTimeout(() => {
+      setStatusOverlay(null);
+    }, 6000);
+
+    return () => clearTimeout(timeout);
+  }, [statusOverlay]);
+
+  const handleDismissStatusOverlay = useCallback(() => {
+    setStatusOverlay(null);
+  }, []);
 
   useEffect(() => {
     const hasOrder = Boolean(ongoingOrder);
@@ -1361,6 +1513,19 @@ export const DashboardScreen: React.FC = () => {
             visible={isConfirmDeliveryOverlayVisible}
             isSubmitting={isProcessingDelivery}
           />
+        )}
+        {statusOverlay && (
+          <>
+            {!isIncomingOrderVisible && (
+              <PlatformBlurView intensity={45} tint="dark" style={styles.blurOverlay} />
+            )}
+            <OngoingOrderStatusOverlay
+              badgeLabel={statusOverlay.badgeLabel}
+              title={statusOverlay.title}
+              message={statusOverlay.message}
+              onDismiss={handleDismissStatusOverlay}
+            />
+          </>
         )}
         <ActionResultModal
           visible={Boolean(resultModal)}
