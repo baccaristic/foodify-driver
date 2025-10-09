@@ -9,3 +9,7 @@ export type DriverShift = {
   finishableAt: string | null;
   endedAt: string | null;
 };
+
+export type DriverShiftBalance = {
+  currentTotal: string | number;
+};

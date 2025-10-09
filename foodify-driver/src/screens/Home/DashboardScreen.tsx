@@ -26,6 +26,7 @@ import {
   confirmOrderDelivery,
   getDriverOngoingOrder,
   getCurrentDriverShift,
+  getDriverShiftBalance,
   markOrderAsPickedUp,
   updateDriverAvailability,
   updateDriverLocation,
@@ -176,6 +177,7 @@ export const DashboardScreen: React.FC = () => {
     | null
   >(null);
   const [currentShift, setCurrentShift] = useState<DriverShift | null>(null);
+  const [shiftBalance, setShiftBalance] = useState<number | null>(null);
   const [isUpdatingShift, setIsUpdatingShift] = useState<boolean>(false);
   const hasActiveShift =
     currentShift?.status === DriverShiftStatus.ACTIVE && Boolean(currentShift.startedAt);
@@ -273,6 +275,14 @@ export const DashboardScreen: React.FC = () => {
 
     return 'You have a new pickup request';
   }, [pendingIncomingOrder]);
+
+  const formattedBalance = useMemo(() => {
+    if (shiftBalance === null || Number.isNaN(shiftBalance)) {
+      return '--.-- DT';
+    }
+
+    return `${shiftBalance.toFixed(2)} DT`;
+  }, [shiftBalance]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -401,6 +411,53 @@ export const DashboardScreen: React.FC = () => {
     sendLocationUpdateRef.current = sendLocationUpdate;
   }, [sendLocationUpdate]);
 
+  const fetchShiftBalance = useCallback(async () => {
+    if (!hasHydrated || !accessToken) {
+      if (isMountedRef.current) {
+        setShiftBalance(null);
+      }
+
+      return null;
+    }
+
+    try {
+      const balance = await getDriverShiftBalance();
+
+      if (!isMountedRef.current) {
+        return balance;
+      }
+
+      const amount = balance?.currentTotal ?? null;
+      let normalized: number | null = null;
+
+      if (typeof amount === 'number' && Number.isFinite(amount)) {
+        normalized = amount;
+      } else if (typeof amount === 'string') {
+        const trimmed = amount.trim();
+
+        if (trimmed) {
+          const parsed = Number.parseFloat(trimmed.replace(/,/g, '.'));
+
+          if (Number.isFinite(parsed)) {
+            normalized = parsed;
+          }
+        }
+      }
+
+      setShiftBalance(normalized ?? 0);
+
+      return balance;
+    } catch (error) {
+      console.warn('[Dashboard] Failed to fetch shift balance', error);
+
+      if (isMountedRef.current) {
+        setShiftBalance(null);
+      }
+
+      return null;
+    }
+  }, [accessToken, hasHydrated]);
+
   const syncOngoingOrder = useCallback(async () => {
     ongoingOrderRequestIdRef.current += 1;
     const requestId = ongoingOrderRequestIdRef.current;
@@ -431,7 +488,8 @@ export const DashboardScreen: React.FC = () => {
     }
 
     void syncOngoingOrder();
-  }, [hasHydrated, syncOngoingOrder]);
+    void fetchShiftBalance();
+  }, [fetchShiftBalance, hasHydrated, syncOngoingOrder]);
 
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
@@ -443,6 +501,7 @@ export const DashboardScreen: React.FC = () => {
         nextAppState === 'active'
       ) {
         void syncOngoingOrder();
+        void fetchShiftBalance();
       }
     };
 
@@ -451,7 +510,7 @@ export const DashboardScreen: React.FC = () => {
     return () => {
       subscription.remove();
     };
-  }, [syncOngoingOrder]);
+  }, [fetchShiftBalance, syncOngoingOrder]);
 
   const fetchShift = useCallback(async (): Promise<DriverShift | null | undefined> => {
     try {
@@ -918,6 +977,7 @@ export const DashboardScreen: React.FC = () => {
             message: 'The delivery has been confirmed successfully.',
           });
           await syncOngoingOrder();
+          await fetchShiftBalance();
         } else {
           setResultModal({
             status: 'error',
@@ -947,7 +1007,7 @@ export const DashboardScreen: React.FC = () => {
         setIsProcessingDelivery(false);
       }
     },
-    [isProcessingDelivery, ongoingOrder?.id, syncOngoingOrder],
+    [fetchShiftBalance, isProcessingDelivery, ongoingOrder?.id, syncOngoingOrder],
   );
 
   const handleCloseOrderDetails = useCallback(() => {
@@ -1112,7 +1172,7 @@ export const DashboardScreen: React.FC = () => {
 
               <View style={styles.balancePill}>
                 <Text allowFontScaling={false} style={styles.balanceLabel}>
-                  0,00 DT
+                  {formattedBalance}
                 </Text>
               </View>
 
