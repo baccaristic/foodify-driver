@@ -99,3 +99,11 @@ export const confirmOrderDelivery = async (payload: ConfirmDeliveryPayload): Pro
 
   return response.data === true;
 };
+
+export const acceptOrder = async (orderId: number | string): Promise<OrderDto> => {
+  const response = await apiClient.post<OrderDto>(
+    `/api/driver/accept-order/${orderId}`,
+  );
+
+  return response.data;
+};

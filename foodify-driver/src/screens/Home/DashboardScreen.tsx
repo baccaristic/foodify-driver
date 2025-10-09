@@ -20,7 +20,9 @@ import { BarcodeScanningResult } from 'expo-camera';
 import { PlatformBlurView } from '../../components/PlatformBlurView';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { useWebSocketContext } from '../../contexts/WebSocketContext';
 import {
+  acceptOrder,
   confirmOrderDelivery,
   getDriverOngoingOrder,
   getCurrentDriverShift,
@@ -95,6 +97,8 @@ const DEFAULT_REGION = {
   longitudeDelta: 0.025,
 };
 
+const INCOMING_ORDER_COUNTDOWN_SECONDS = 89;
+
 const EMPTY_ONGOING_ORDER_PLACEHOLDER: OrderDto = {
   id: 0,
   restaurantName: null,
@@ -125,6 +129,7 @@ const EMPTY_ONGOING_ORDER_PLACEHOLDER: OrderDto = {
 
 export const DashboardScreen: React.FC = () => {
   const { user, isOnline, accessToken, hasHydrated, setOnlineStatus } = useAuth();
+  const { upcomingOrder, clearUpcomingOrder, ongoingOrderUpdate } = useWebSocketContext();
 
   const formattedName = (user?.name || user?.email || 'Driver').toUpperCase();
   const friendlyName = useMemo(() => {
@@ -150,7 +155,11 @@ export const DashboardScreen: React.FC = () => {
   const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(false);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [ongoingOrder, setOngoingOrder] = useState<OrderDto | null>(null);
-  const [incomingCountdown, setIncomingCountdown] = useState<number>(89);
+  const [incomingCountdown, setIncomingCountdown] = useState<number>(
+    INCOMING_ORDER_COUNTDOWN_SECONDS,
+  );
+  const [pendingIncomingOrder, setPendingIncomingOrder] = useState<OrderDto | null>(null);
+  const [isAcceptingOrder, setIsAcceptingOrder] = useState<boolean>(false);
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
   const [isConfirmDeliveryOverlayVisible, setConfirmDeliveryOverlayVisible] =
@@ -210,6 +219,61 @@ export const DashboardScreen: React.FC = () => {
     return { label: 'restaurant' as const, location: ongoingOrder.restaurantLocation };
   }, [ongoingOrder, ongoingStatus]);
 
+  const deliveryAddress = useMemo(() => {
+    if (!ongoingOrder) {
+      return null;
+    }
+
+    const directAddress = ongoingOrder.clientAddress?.trim();
+    if (directAddress) {
+      return directAddress;
+    }
+
+    const savedAddress = ongoingOrder.savedAddress?.formattedAddress?.trim();
+
+    return savedAddress ?? null;
+  }, [ongoingOrder]);
+
+  const incomingOrderLabel = useMemo(() => {
+    if (!pendingIncomingOrder) {
+      return 'New Order';
+    }
+
+    const restaurantName = pendingIncomingOrder.restaurantName?.trim();
+
+    if (restaurantName) {
+      return restaurantName;
+    }
+
+    return `Order #${pendingIncomingOrder.id}`;
+  }, [pendingIncomingOrder]);
+
+  const incomingOrderSubtitle = useMemo(() => {
+    if (!pendingIncomingOrder) {
+      return 'You have a new pickup request';
+    }
+
+    const delivery = pendingIncomingOrder.clientAddress?.trim();
+
+    if (delivery) {
+      return `Deliver to ${delivery}`;
+    }
+
+    const savedDelivery = pendingIncomingOrder.savedAddress?.formattedAddress?.trim();
+
+    if (savedDelivery) {
+      return `Deliver to ${savedDelivery}`;
+    }
+
+    const restaurantName = pendingIncomingOrder.restaurantName?.trim();
+
+    if (restaurantName) {
+      return `Pickup from ${restaurantName}`;
+    }
+
+    return 'You have a new pickup request';
+  }, [pendingIncomingOrder]);
+
   useEffect(() => {
     isMountedRef.current = true;
 
@@ -219,14 +283,33 @@ export const DashboardScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!upcomingOrder || !upcomingOrder.upcoming) {
+      return;
+    }
+
+    setPendingIncomingOrder(upcomingOrder);
+    setIncomingCountdown(INCOMING_ORDER_COUNTDOWN_SECONDS);
+    setIncomingOrderVisible(true);
+  }, [upcomingOrder]);
+
+  useEffect(() => {
+    if (!ongoingOrderUpdate) {
+      return;
+    }
+
+    setOngoingOrder(ongoingOrderUpdate);
+  }, [ongoingOrderUpdate]);
+
+  useEffect(() => {
     const hasOrder = Boolean(ongoingOrder);
 
     setOngoingOrderVisible(hasOrder);
 
-    if (hasOrder) {
+    if (hasOrder && !pendingIncomingOrder) {
       setIncomingOrderVisible(false);
+      clearUpcomingOrder();
     }
-  }, [ongoingOrder]);
+  }, [clearUpcomingOrder, ongoingOrder, pendingIncomingOrder]);
 
   useEffect(() => {
     scanAvailabilityRef.current = isScanToPickupVisible;
@@ -528,10 +611,18 @@ export const DashboardScreen: React.FC = () => {
   }, [isIncomingOrderVisible]);
 
   useEffect(() => {
-    if (incomingCountdown <= 0) {
-      setIncomingOrderVisible(false);
+    if (!isIncomingOrderVisible) {
+      setIncomingCountdown(INCOMING_ORDER_COUNTDOWN_SECONDS);
     }
-  }, [incomingCountdown]);
+  }, [isIncomingOrderVisible]);
+
+  useEffect(() => {
+    if (incomingCountdown <= 0 && isIncomingOrderVisible) {
+      setIncomingOrderVisible(false);
+      setPendingIncomingOrder(null);
+      clearUpcomingOrder();
+    }
+  }, [clearUpcomingOrder, incomingCountdown, isIncomingOrderVisible]);
 
   const shiftFinishableDisplay = useMemo(() => {
     if (!currentShift?.finishableAt) {
@@ -655,15 +746,43 @@ export const DashboardScreen: React.FC = () => {
     ],
   );
 
-  const handleAcceptOrder = useCallback(() => {
-    setIncomingOrderVisible(false);
-    setOngoingOrder((current) => current ?? EMPTY_ONGOING_ORDER_PLACEHOLDER);
-  }, []);
+  const handleAcceptOrder = useCallback(async () => {
+    if (isAcceptingOrder) {
+      return;
+    }
+
+    const orderId = pendingIncomingOrder?.id;
+
+    if (!orderId) {
+      return;
+    }
+
+    setIsAcceptingOrder(true);
+
+    try {
+      const order = await acceptOrder(orderId);
+      setOngoingOrder(order ?? EMPTY_ONGOING_ORDER_PLACEHOLDER);
+      setIncomingOrderVisible(false);
+      setPendingIncomingOrder(null);
+      clearUpcomingOrder();
+    } catch (error) {
+      console.warn('[Dashboard] Failed to accept order', error);
+      Alert.alert('Unable to accept order', 'Please try again in a moment.');
+    } finally {
+      setIsAcceptingOrder(false);
+    }
+  }, [
+    acceptOrder,
+    clearUpcomingOrder,
+    isAcceptingOrder,
+    pendingIncomingOrder,
+  ]);
 
   const handleDeclineOrder = useCallback(() => {
     setIncomingOrderVisible(false);
-    setOngoingOrder(null);
-  }, []);
+    setPendingIncomingOrder(null);
+    clearUpcomingOrder();
+  }, [clearUpcomingOrder]);
 
   const callTargetLabel = shouldCallRestaurant ? 'restaurant' : 'client';
 
@@ -1022,6 +1141,12 @@ export const DashboardScreen: React.FC = () => {
                   isScanToPickupVisible={isScanToPickupVisible}
                   onConfirmDelivery={handleOpenConfirmDelivery}
                   isConfirmDeliveryVisible={isConfirmDeliveryVisible}
+                  orderId={ongoingOrder?.id ?? null}
+                  restaurantName={ongoingOrder?.restaurantName ?? null}
+                  clientName={ongoingOrder?.clientName ?? null}
+                  clientAddress={deliveryAddress}
+                  orderTotal={ongoingOrder?.total ?? null}
+                  orderStatus={ongoingOrder?.status ?? null}
                 />
               ) : (
                 !hasActiveShift && (
@@ -1092,8 +1217,8 @@ export const DashboardScreen: React.FC = () => {
               countdownSeconds={incomingCountdown}
               onAccept={handleAcceptOrder}
               onDecline={handleDeclineOrder}
-              orderLabel="New Order"
-              subtitle="You have a new pickup request"
+              orderLabel={incomingOrderLabel}
+              subtitle={incomingOrderSubtitle}
             />
           </>
         )}
