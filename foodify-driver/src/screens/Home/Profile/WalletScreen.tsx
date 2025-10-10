@@ -12,6 +12,8 @@ import { Calendar } from 'react-native-calendars';
 import { Wallet, Calendar as CalendarIcon, DollarSign, CircleDollarSign } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import HeaderWithBackButton from '../../../components/HeaderWithBackButton';
+import { Image } from 'expo-image';
+
 
 const { width } = Dimensions.get('screen');
 
@@ -69,17 +71,17 @@ export const WalletScreen: React.FC = () => {
       return (
         <View style={styles.rangeSummary}>
           <View style={styles.rangeRow}>
-            <Text style={styles.rangeLabel}>From</Text>
-            <Text style={styles.rangeDate}>{formatDate(selectedRange.start)}</Text>
+            <Text allowFontScaling={false} style={styles.rangeLabel}>From</Text>
+            <Text allowFontScaling={false} style={styles.rangeDate}>{formatDate(selectedRange.start)}</Text>
           </View>
           <View style={styles.rangeRow}>
-            <Text style={styles.rangeLabel}>To</Text>
-            <Text style={styles.rangeDate}>{formatDate(selectedRange.end)}</Text>
+            <Text allowFontScaling={false} style={styles.rangeLabel}>To</Text>
+            <Text allowFontScaling={false} style={styles.rangeDate}>{formatDate(selectedRange.end)}</Text>
           </View>
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalText}>Total earnings</Text>
-            <Text style={styles.totalValue}>{earnings}</Text>
+            <Text allowFontScaling={false} style={styles.totalText}>Total earnings</Text>
+            <Text allowFontScaling={false} style={styles.totalValue}>{earnings}</Text>
           </View>
         </View>
       );
@@ -88,16 +90,16 @@ export const WalletScreen: React.FC = () => {
     return (
       <View style={styles.summaryBlock}>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Today</Text>
-          <Text style={styles.summaryValue}>{earnings}</Text>
+          <Text allowFontScaling={false} style={styles.summaryLabel}>Today</Text>
+          <Text allowFontScaling={false} style={styles.summaryValue}>{earnings}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>This Week</Text>
-          <Text style={styles.summaryValue}>1213,32 dt</Text>
+          <Text allowFontScaling={false} style={styles.summaryLabel}>This Week</Text>
+          <Text allowFontScaling={false} style={styles.summaryValue}>1213,32 dt</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>This Month</Text>
-          <Text style={styles.summaryValue}>1213,32 dt</Text>
+          <Text allowFontScaling={false} style={styles.summaryLabel}>This Month</Text>
+          <Text allowFontScaling={false} style={styles.summaryValue}>1213,32 dt</Text>
         </View>
       </View>
     );
@@ -125,17 +127,20 @@ export const WalletScreen: React.FC = () => {
 
         <View style={styles.balanceCard}>
           <View>
-            <Text style={styles.balanceLabel}>Available Balance</Text>
-            <Text style={styles.balanceAmount}>{balance}</Text>
-            <Text style={styles.balanceSub}>Next payout on Friday, Oct 27</Text>
+            <Text allowFontScaling={false} style={styles.balanceLabel}>Available Balance</Text>
+            <Text allowFontScaling={false} style={styles.balanceAmount}>{balance}</Text>
+            <Text allowFontScaling={false} style={styles.balanceSub}>Next payout on Friday, Oct 27</Text>
           </View>
-          <Wallet color="#CA251B" size={moderateScale(60)} strokeWidth={2.5} />
+          <Image
+            source={require('../../../../assets/wallet.png')}
+            style={styles.icon}
+          contentFit="contain"
+          />
         </View>
 
         <View style={styles.actionsRow}>
           <TouchableOpacity style={styles.earningsButton}>
-
-            <Text style={styles.earningsText}>View Earnings</Text>
+            <Text allowFontScaling={false} style={styles.earningsText}>View Earnings</Text>
             <CircleDollarSign color="#fff" size={moderateScale(26)} strokeWidth={1.6} />
           </TouchableOpacity>
 
@@ -154,7 +159,7 @@ export const WalletScreen: React.FC = () => {
             <View style={styles.modalCard}>
               <Calendar
                 markingType="period"
-                markedDates={getMarkedDates()}
+                markedDates={getMarkedDates()}  
                 onDayPress={handleDateSelect}
                 theme={{
                   arrowColor: '#CA251B',
@@ -164,10 +169,10 @@ export const WalletScreen: React.FC = () => {
                 }}
               />
               <TouchableOpacity style={styles.applyButton} onPress={handleApplyRange}>
-                <Text style={styles.applyLabel}>Apply</Text>
+                <Text allowFontScaling={false} style={styles.applyLabel}>Apply</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={resetRange}>
-                <Text style={styles.resetLabel}>Reset</Text>
+                <Text allowFontScaling={false} style={styles.resetLabel}>Reset</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -215,6 +220,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
     marginBottom: verticalScale(20),
+  },
+  icon: {
+    width: moderateScale(70),
+    height: verticalScale(60),
   },
   balanceLabel: { color: '#17213A', fontWeight: '600', fontSize: moderateScale(14) },
   balanceAmount: {

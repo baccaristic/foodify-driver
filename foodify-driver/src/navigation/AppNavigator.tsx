@@ -13,8 +13,8 @@ import DeleteAccountScreen from '../screens/Home/Profile/DeleteAccountScreen';
 import ProfileSettingsScreen from '../screens/Home/Profile/ProfileSettingsScreen';
 import { WalletScreen } from '../screens/Home/Profile/WalletScreen';
 import { InboxScreen } from '../screens/Home/Profile/InboxScreen';
-import { EarningsScreen } from '../screens/Home/Profile/EarningsScreen';
 import { RewardsScreen } from '../screens/Home/Profile/RewardsScreen';
+import EarningsScreen from '../screens/Home/Profile/EarningsScreen';
 
 const Stack = createStackNavigator();
 
