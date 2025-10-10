@@ -43,6 +43,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DriverShift, DriverShiftStatus } from '../../types/shift';
 import { OrderDto, OrderStatus } from '../../types/order';
 import { DashboardSidebar } from './components/DashboardSidebar';
+import { Menu } from 'lucide-react-native';
 
 const parseShiftDate = (value: string | null | undefined): Date | null => {
   if (!value) {
@@ -1393,9 +1394,7 @@ export const DashboardScreen: React.FC = () => {
                 style={styles.menuButton}
                 onPress={handleOpenSidebar}
               >
-                <View style={styles.menuLine} />
-                <View style={styles.menuLineMedium} />
-                <View style={styles.menuLineSmall} />
+                <Menu style={styles.menuLine} size={moderateScale(30)}/>
               </TouchableOpacity>
 
               <View style={styles.balancePill}>
@@ -1637,19 +1636,7 @@ const styles = StyleSheet.create({
     width: moderateScale(24),
     height: verticalScale(3),
     borderRadius: moderateScale(2),
-    backgroundColor: '#CA251B',
-  },
-  menuLineMedium: {
-    width: moderateScale(18),
-    height: verticalScale(3),
-    borderRadius: moderateScale(2),
-    backgroundColor: '#CA251B',
-  },
-  menuLineSmall: {
-    width: moderateScale(12),
-    height: verticalScale(3),
-    borderRadius: moderateScale(2),
-    backgroundColor: '#CA251B',
+    color:'#CA251B',
   },
   balancePill: {
     paddingHorizontal: moderateScale(22),
