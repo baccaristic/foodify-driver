@@ -1,11 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { isAxiosError } from 'axios';
+import { createStackNavigator } from '@react-navigation/stack';
 
 import { useAuth } from '../contexts/AuthContext';
 import { DashboardScreen } from '../screens/Home/DashboardScreen';
 import { LoginScreen } from '../screens/Auth/LoginScreen';
 import { checkDriverSession, refreshDriverSession } from '../services/authService';
+import { NavigationContainer } from '@react-navigation/native';
+import NotificationsScreen from '../screens/Home/Profile/NotificationsScreen';
+import DeleteAccountScreen from '../screens/Home/Profile/DeleteAccountScreen';
+import ProfileSettingsScreen from '../screens/Home/Profile/ProfileSettingsScreen';
+import { WalletScreen } from '../screens/Home/Profile/WalletScreen';
+import { InboxScreen } from '../screens/Home/Profile/InboxScreen';
+import { EarningsScreen } from '../screens/Home/Profile/EarningsScreen';
+import { RewardsScreen } from '../screens/Home/Profile/RewardsScreen';
+
+const Stack = createStackNavigator();
+
 
 export const AppNavigator: React.FC = () => {
   const { accessToken, refreshToken, hasHydrated, setTokens, logout } = useAuth();
@@ -98,11 +110,26 @@ export const AppNavigator: React.FC = () => {
     );
   }
 
-  if (!accessToken) {
-    return <LoginScreen />;
-  }
-
-  return <DashboardScreen />;
+ return (
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {!accessToken ? (
+          <Stack.Screen name="LoginScreen" component={LoginScreen} />
+        ) : (
+          <>
+            <Stack.Screen name="DashboardScreen" component={DashboardScreen} />
+            <Stack.Screen name="ProfileSettingsScreen" component={ProfileSettingsScreen} />
+            <Stack.Screen name="WalletScreen" component={WalletScreen} />
+            <Stack.Screen name="InboxScreen" component={InboxScreen} />
+            <Stack.Screen name="EarningsScreen" component={EarningsScreen} />
+            <Stack.Screen name="RewardsScreen" component={RewardsScreen} />
+            <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
+            <Stack.Screen name="DeleteAccountScreen" component={DeleteAccountScreen} />
+          </>
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
 };
 
 const styles = StyleSheet.create({

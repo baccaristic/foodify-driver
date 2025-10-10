@@ -22,12 +22,14 @@ import {
   Wallet,
 } from 'lucide-react-native';
 import { Image } from 'expo-image';
+import { useNavigation } from '@react-navigation/native';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('screen');
 
 type SidebarItem = {
   label: string;
   Icon: typeof Inbox;
+  route?: string;
 };
 
 type DashboardSidebarProps = {
@@ -41,16 +43,16 @@ type DashboardSidebarProps = {
 };
 
 const QUICK_ACTIONS: SidebarItem[] = [
-  { label: 'Inbox', Icon: Inbox },
-  { label: 'Earnings', Icon: CircleDollarSign },
-  { label: 'Rewards', Icon: Gift },
+  { label: 'Inbox', Icon: Inbox, route: 'InboxScreen' },
+  { label: 'Earnings', Icon: CircleDollarSign, route: 'EarningsScreen' },
+  { label: 'Rewards', Icon: Gift, route: 'RewardsScreen' },
 ];
 
 const MENU_ITEMS: SidebarItem[] = [
-  { label: 'Wallet', Icon: Wallet },
-  { label: 'Profile', Icon: User },
-  { label: 'Notifications', Icon: Bell },
-  { label: 'Delete account & Data', Icon: Trash2 },
+  { label: 'Wallet', Icon: Wallet, route: 'WalletScreen' },
+  { label: 'Profile', Icon: User, route: 'ProfileSettingsScreen' },
+  { label: 'Notifications', Icon: Bell, route: 'NotificationsScreen' },
+  { label: 'Delete account & Data', Icon: Trash2, route: 'DeleteAccountScreen' },
 ];
 
 export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
@@ -62,12 +64,52 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   bottomInset,
   onClose,
 }) => {
+  const navigation = useNavigation();
   const [isRendered, setIsRendered] = useState(visible);
   const animation = useRef(new Animated.Value(visible ? 1 : 0)).current;
 
+  /** ---- HANDLE NAVIGATION ---- **/
+  const handleNavigate = useCallback(
+    (route?: string) => {
+      if (!route) return;
+      try {
+        switch (route) {
+          case 'InboxScreen':
+            navigation.navigate('InboxScreen' as never);
+            break;
+          case 'EarningsScreen':
+            navigation.navigate('EarningsScreen' as never);
+            break;
+          case 'RewardsScreen':
+            navigation.navigate('RewardsScreen' as never);
+            break;
+          case 'WalletScreen':
+            navigation.navigate('WalletScreen' as never);
+            break;
+          case 'ProfileSettingsScreen':
+            navigation.navigate('ProfileSettingsScreen' as never);
+            break;
+          case 'NotificationsScreen':
+            navigation.navigate('NotificationsScreen' as never);
+            break;
+          case 'DeleteAccountScreen':
+            navigation.navigate('DeleteAccountScreen' as never);
+            break;
+          default:
+            console.log('Navigate to:', route);
+        }
+      } catch (err) {
+        console.warn('Navigation error:', err);
+      } finally {
+        onClose?.();
+      }
+    },
+    [navigation, onClose],
+  );
+
+  /** ---- SIDEBAR ANIMATION ---- **/
   useEffect(() => {
     animation.stopAnimation();
-
     if (visible) {
       setIsRendered(true);
       Animated.timing(animation, {
@@ -88,27 +130,17 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     }
   }, [animation, visible]);
 
-  const noop = useCallback(() => { }, []);
-
-  const backdropOpacity = useMemo(
-    () =>
-      animation.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 0.45],
-      }),
-    [animation],
-  );
-
-  const translateX = useMemo(
-    () =>
-      animation.interpolate({
-        inputRange: [0, 1],
-        outputRange: [-moderateScale(320), 0],
-      }),
-    [animation],
-  );
-
   if (!isRendered) return null;
+
+  const backdropOpacity = animation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.45],
+  });
+
+  const translateX = animation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-moderateScale(320), 0],
+  });
 
   return (
     <View pointerEvents="box-none" style={styles.overlay}>
@@ -132,7 +164,6 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             style={StyleSheet.absoluteFillObject}
             contentFit="cover"
           />
-
           <View style={styles.redTintOverlay} />
 
           <View style={styles.topContent}>
@@ -147,12 +178,12 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             ) : null}
 
             <View style={styles.quickRow}>
-              {QUICK_ACTIONS.map(({ label, Icon }) => (
+              {QUICK_ACTIONS.map(({ label, Icon, route }) => (
                 <TouchableOpacity
                   key={label}
                   activeOpacity={0.85}
                   style={styles.quickItem}
-                  onPress={noop}
+                  onPress={() => handleNavigate(route)}
                 >
                   <View style={styles.quickIconCircle}>
                     <Icon color="#CA251B" size={moderateScale(34)} strokeWidth={2.2} />
@@ -169,12 +200,12 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
         <View style={styles.contentWrapper}>
           <View style={styles.content}>
             <View style={styles.menuSection}>
-              {MENU_ITEMS.map(({ label, Icon }) => (
+              {MENU_ITEMS.map(({ label, Icon, route }) => (
                 <TouchableOpacity
                   key={label}
                   activeOpacity={0.75}
                   style={styles.menuItem}
-                  onPress={noop}
+                  onPress={() => handleNavigate(route)}
                 >
                   <View style={styles.menuLeft}>
                     <Icon color="#CA251B" size={moderateScale(20)} strokeWidth={2.1} />
@@ -187,7 +218,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               ))}
             </View>
 
-            <TouchableOpacity activeOpacity={0.85} style={styles.logoutButton} onPress={noop}>
+            <TouchableOpacity activeOpacity={0.85} style={styles.logoutButton} onPress={() => console.log('Logout')}>
               <Text allowFontScaling={false} style={styles.logoutLabel}>
                 Logout
               </Text>
@@ -200,15 +231,10 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   );
 };
 
+/* ---- STYLES ---- */
 const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 30,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0F172A',
-  },
+  overlay: { ...StyleSheet.absoluteFillObject, zIndex: 30 },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: '#0F172A' },
   sidebar: {
     position: 'absolute',
     top: 0,
@@ -221,9 +247,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: moderateScale(8), height: 0 },
     shadowOpacity: 1,
     shadowRadius: moderateScale(18),
-
   },
-
   topSection: {
     width: '100%',
     height: SCREEN_HEIGHT * 0.32,
@@ -237,12 +261,9 @@ const styles = StyleSheet.create({
   },
   topContent: {
     flex: 1,
-    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'flex-start',
-
   },
-
   greeting: {
     color: '#ffffff',
     fontSize: moderateScale(34),
@@ -266,10 +287,7 @@ const styles = StyleSheet.create({
     marginTop: verticalScale(22),
     width: '100%',
   },
-  quickItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
+  quickItem: { alignItems: 'center', flex: 1 },
   quickIconCircle: {
     width: moderateScale(62),
     height: moderateScale(62),
@@ -284,7 +302,6 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(14),
     fontWeight: '600',
   },
-
   contentWrapper: {
     flex: 1,
     backgroundColor: '#ffffff',
@@ -292,15 +309,12 @@ const styles = StyleSheet.create({
     borderTopRightRadius: moderateScale(28),
     marginTop: -verticalScale(20),
     paddingTop: verticalScale(24),
-
   },
   content: {
     flex: 1,
     paddingHorizontal: moderateScale(24),
   },
-  menuSection: {
-    flex: 1,
-  },
+  menuSection: { flex: 1 },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -309,10 +323,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E6E8EB',
   },
-  menuLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  menuLeft: { flexDirection: 'row', alignItems: 'center' },
   menuLabel: {
     marginLeft: moderateScale(16),
     color: '#17213A',
