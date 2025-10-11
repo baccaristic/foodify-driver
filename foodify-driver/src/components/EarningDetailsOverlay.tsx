@@ -6,8 +6,9 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { ScaledSheet, vs } from 'react-native-size-matters';
+import { ScaledSheet, ms, vs } from 'react-native-size-matters';
 import { Image } from 'expo-image';
+import { ChevronDown, ChevronUp, ClockFading } from 'lucide-react-native';
 import type {
   DriverShiftDetail,
   DriverShiftEarning,
@@ -187,16 +188,25 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
                     onPress={() => toggleOrderExpansion(order.orderId)}
                   >
                     <View style={styles.orderHeaderContent}>
-                      <Text allowFontScaling={false} style={styles.orderTitle}>
-                        {`Order #${order.orderId}`}
-                      </Text>
+                      <View style={styles.orderHeaderLeft}>
+                        <ClockFading
+                          color="#CA251B"
+                          size={ms(16)}
+                          strokeWidth={2}
+                        />
+                        <Text allowFontScaling={false} style={styles.orderTitle}>
+                          {`Order #${order.orderId}`}
+                        </Text>
+                      </View>
                       <Text allowFontScaling={false} style={styles.orderAmount}>
                         {formatCurrency(order.driverEarningFromOrder)}
                       </Text>
                     </View>
-                    <Text allowFontScaling={false} style={styles.orderChevron}>
-                      {expandedOrderIds.includes(order.orderId) ? '▲' : '▼'}
-                    </Text>
+                    {expandedOrderIds.includes(order.orderId) ? (
+                      <ChevronUp color="#CA251B" size={ms(16)} strokeWidth={2} />
+                    ) : (
+                      <ChevronDown color="#CA251B" size={ms(16)} strokeWidth={2} />
+                    )}
                   </TouchableOpacity>
 
                   {expandedOrderIds.includes(order.orderId) ? (
@@ -377,19 +387,20 @@ const styles = ScaledSheet.create({
     flex: 1,
     marginRight: '10@s',
   },
+  orderHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   orderTitle: {
     color: '#17213A',
     fontWeight: '700',
     fontSize: '14@ms',
+    marginLeft: '6@s',
   },
   orderAmount: {
     color: '#10B981',
     fontWeight: '700',
     fontSize: '14@ms',
-  },
-  orderChevron: {
-    color: '#6B7280',
-    fontSize: '12@ms',
   },
   orderDetails: {
     paddingBottom: '12@vs',
