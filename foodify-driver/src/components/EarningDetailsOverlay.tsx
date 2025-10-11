@@ -62,6 +62,7 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
   const [shiftDetails, setShiftDetails] = useState<DriverShiftDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedOrderIds, setExpandedOrderIds] = useState<number[]>([]);
 
   const fetchShiftDetails = useCallback(async () => {
     if (!shift) {
@@ -84,8 +85,17 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
 
   useEffect(() => {
     setShiftDetails(null);
+    setExpandedOrderIds([]);
     fetchShiftDetails();
   }, [fetchShiftDetails]);
+
+  const toggleOrderExpansion = useCallback((orderId: number) => {
+    setExpandedOrderIds((current) =>
+      current.includes(orderId)
+        ? current.filter((id) => id !== orderId)
+        : [...current, orderId],
+    );
+  }, []);
 
   const shiftDate = useMemo(() => {
     if (shiftDetails?.date) {
@@ -174,50 +184,64 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
             <View style={styles.orderList}>
               {shiftDetails.orders.map((order) => (
                 <View key={order.orderId} style={styles.orderCard}>
-                  <View style={styles.orderHeader}>
-                    <Text allowFontScaling={false} style={styles.orderTitle}>
-                      {`Order #${order.orderId}`}
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    style={styles.orderHeader}
+                    onPress={() => toggleOrderExpansion(order.orderId)}
+                  >
+                    <View style={styles.orderHeaderContent}>
+                      <Text allowFontScaling={false} style={styles.orderTitle}>
+                        {`Order #${order.orderId}`}
+                      </Text>
+                      <Text allowFontScaling={false} style={styles.orderAmount}>
+                        {formatCurrency(order.driverEarningFromOrder)}
+                      </Text>
+                    </View>
+                    <Text allowFontScaling={false} style={styles.orderChevron}>
+                      {expandedOrderIds.includes(order.orderId) ? '▲' : '▼'}
                     </Text>
-                    <Text allowFontScaling={false} style={styles.orderAmount}>
-                      {formatCurrency(order.driverEarningFromOrder)}
-                    </Text>
-                  </View>
-                  <View style={styles.orderRow}>
-                    <Text allowFontScaling={false} style={styles.orderLabel}>Restaurant</Text>
-                    <Text allowFontScaling={false} style={styles.orderValue}>
-                      {order.restaurantName || 'N/A'}
-                    </Text>
-                  </View>
-                  <View style={styles.orderRow}>
-                    <Text allowFontScaling={false} style={styles.orderLabel}>Pickup</Text>
-                    <Text allowFontScaling={false} style={styles.orderValue}>
-                      {order.pickUpLocation || 'N/A'}
-                    </Text>
-                  </View>
-                  <View style={styles.orderRow}>
-                    <Text allowFontScaling={false} style={styles.orderLabel}>Drop-off</Text>
-                    <Text allowFontScaling={false} style={styles.orderValue}>
-                      {order.deliveryLocation || 'N/A'}
-                    </Text>
-                  </View>
-                  <View style={styles.orderTotalsRow}>
-                    <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Order Total</Text>
-                    <Text allowFontScaling={false} style={styles.orderTotalsValue}>
-                      {formatCurrency(order.orderTotal)}
-                    </Text>
-                  </View>
-                  <View style={styles.orderTotalsRow}>
-                    <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Delivery Fee</Text>
-                    <Text allowFontScaling={false} style={styles.orderTotalsValue}>
-                      {formatCurrency(order.deliveryFee)}
-                    </Text>
-                  </View>
-                  <View style={styles.orderTotalsRow}>
-                    <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Items</Text>
-                    <Text allowFontScaling={false} style={styles.orderTotalsValue}>
-                      {order.orderItemsCount ?? '--'}
-                    </Text>
-                  </View>
+                  </TouchableOpacity>
+
+                  {expandedOrderIds.includes(order.orderId) ? (
+                    <View style={styles.orderDetails}>
+                      <View style={styles.orderRow}>
+                        <Text allowFontScaling={false} style={styles.orderLabel}>Restaurant</Text>
+                        <Text allowFontScaling={false} style={styles.orderValue}>
+                          {order.restaurantName || 'N/A'}
+                        </Text>
+                      </View>
+                      <View style={styles.orderRow}>
+                        <Text allowFontScaling={false} style={styles.orderLabel}>Pickup</Text>
+                        <Text allowFontScaling={false} style={styles.orderValue}>
+                          {order.pickUpLocation || 'N/A'}
+                        </Text>
+                      </View>
+                      <View style={styles.orderRow}>
+                        <Text allowFontScaling={false} style={styles.orderLabel}>Drop-off</Text>
+                        <Text allowFontScaling={false} style={styles.orderValue}>
+                          {order.deliveryLocation || 'N/A'}
+                        </Text>
+                      </View>
+                      <View style={styles.orderTotalsRow}>
+                        <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Order Total</Text>
+                        <Text allowFontScaling={false} style={styles.orderTotalsValue}>
+                          {formatCurrency(order.orderTotal)}
+                        </Text>
+                      </View>
+                      <View style={styles.orderTotalsRow}>
+                        <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Delivery Fee</Text>
+                        <Text allowFontScaling={false} style={styles.orderTotalsValue}>
+                          {formatCurrency(order.deliveryFee)}
+                        </Text>
+                      </View>
+                      <View style={styles.orderTotalsRow}>
+                        <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Items</Text>
+                        <Text allowFontScaling={false} style={styles.orderTotalsValue}>
+                          {order.orderItemsCount ?? '--'}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
                 </View>
               ))}
             </View>
@@ -327,14 +351,22 @@ const styles = ScaledSheet.create({
     borderRadius: '14@ms',
     borderWidth: 1,
     borderColor: '#E6E8EB',
-    padding: '16@s',
+    paddingVertical: '6@vs',
+    paddingHorizontal: '14@s',
     elevation: 2,
-    gap: 8,
   },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: '10@vs',
+  },
+  orderHeaderContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: '10@s',
   },
   orderTitle: {
     color: '#17213A',
@@ -345,6 +377,17 @@ const styles = ScaledSheet.create({
     color: '#10B981',
     fontWeight: '700',
     fontSize: '14@ms',
+  },
+  orderChevron: {
+    color: '#6B7280',
+    fontSize: '12@ms',
+  },
+  orderDetails: {
+    paddingBottom: '12@vs',
+    paddingTop: '4@vs',
+    borderTopWidth: 1,
+    borderTopColor: '#E6E8EB',
+    gap: 8,
   },
   orderRow: {
     flexDirection: 'row',
