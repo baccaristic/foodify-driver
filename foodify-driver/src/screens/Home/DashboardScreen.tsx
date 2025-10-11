@@ -23,7 +23,6 @@ import { PlatformBlurView } from '../../components/PlatformBlurView';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWebSocketContext } from '../../contexts/WebSocketContext';
 import {
-  acceptOrder,
   confirmOrderDelivery,
   getDriverOngoingOrder,
   getCurrentDriverShift,
@@ -32,7 +31,6 @@ import {
   updateDriverAvailability,
   updateDriverLocation,
 } from '../../services/driverService';
-import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
 import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
 import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
@@ -100,8 +98,6 @@ const DEFAULT_REGION = {
   latitudeDelta: 0.025,
   longitudeDelta: 0.025,
 };
-
-const INCOMING_ORDER_COUNTDOWN_SECONDS = 89;
 
 type StatusOverlayContent = {
   badgeLabel: string;
@@ -207,7 +203,7 @@ const EMPTY_ONGOING_ORDER_PLACEHOLDER: OrderDto = {
 
 export const DashboardScreen: React.FC = () => {
   const { user, isOnline, accessToken, hasHydrated, setOnlineStatus } = useAuth();
-  const { upcomingOrder, clearUpcomingOrder, ongoingOrderUpdate } = useWebSocketContext();
+  const { ongoingOrderUpdate } = useWebSocketContext();
 
   const formattedName = (user?.name || user?.email || 'Driver').toUpperCase();
   const friendlyName = useMemo(() => {
@@ -230,14 +226,8 @@ export const DashboardScreen: React.FC = () => {
       longitudeDelta: DEFAULT_REGION.longitudeDelta,
     }),
   );
-  const [isIncomingOrderVisible, setIncomingOrderVisible] = useState<boolean>(false);
   const [isOngoingOrderVisible, setOngoingOrderVisible] = useState<boolean>(false);
   const [ongoingOrder, setOngoingOrder] = useState<OrderDto | null>(null);
-  const [incomingCountdown, setIncomingCountdown] = useState<number>(
-    INCOMING_ORDER_COUNTDOWN_SECONDS,
-  );
-  const [pendingIncomingOrder, setPendingIncomingOrder] = useState<OrderDto | null>(null);
-  const [isAcceptingOrder, setIsAcceptingOrder] = useState<boolean>(false);
   const [isOrderDetailsVisible, setOrderDetailsVisible] = useState<boolean>(false);
   const [isScanOverlayVisible, setScanOverlayVisible] = useState<boolean>(false);
   const [isConfirmDeliveryOverlayVisible, setConfirmDeliveryOverlayVisible] =
@@ -299,7 +289,6 @@ export const DashboardScreen: React.FC = () => {
 
   const scanAvailabilityRef = useRef(isScanToPickupVisible);
   const confirmAvailabilityRef = useRef(isConfirmDeliveryVisible);
-  const incomingOrderSoundRef = useRef<Audio.Sound | null>(null);
   const statusSoundRef = useRef<Audio.Sound | null>(null);
   const previousOngoingStatusRef = useRef<{ id: number | null; status: OrderStatus | null }>({
     id: null,
@@ -333,46 +322,6 @@ export const DashboardScreen: React.FC = () => {
     return savedAddress ?? null;
   }, [ongoingOrder]);
 
-  const incomingOrderLabel = useMemo(() => {
-    if (!pendingIncomingOrder) {
-      return 'New Order';
-    }
-
-    const restaurantName = pendingIncomingOrder.restaurantName?.trim();
-
-    if (restaurantName) {
-      return restaurantName;
-    }
-
-    return `Order #${pendingIncomingOrder.id}`;
-  }, [pendingIncomingOrder]);
-
-  const incomingOrderSubtitle = useMemo(() => {
-    if (!pendingIncomingOrder) {
-      return 'You have a new pickup request';
-    }
-
-    const delivery = pendingIncomingOrder.clientAddress?.trim();
-
-    if (delivery) {
-      return `Deliver to ${delivery}`;
-    }
-
-    const savedDelivery = pendingIncomingOrder.savedAddress?.formattedAddress?.trim();
-
-    if (savedDelivery) {
-      return `Deliver to ${savedDelivery}`;
-    }
-
-    const restaurantName = pendingIncomingOrder.restaurantName?.trim();
-
-    if (restaurantName) {
-      return `Pickup from ${restaurantName}`;
-    }
-
-    return 'You have a new pickup request';
-  }, [pendingIncomingOrder]);
-
   useEffect(() => {
     Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
@@ -381,58 +330,6 @@ export const DashboardScreen: React.FC = () => {
     }).catch((error) => {
       console.warn('Unable to configure audio mode', error);
     });
-  }, []);
-
-  useEffect(() => {
-    let isActive = true;
-
-    const ensurePlaybackState = async () => {
-      try {
-        if (isIncomingOrderVisible) {
-          if (!incomingOrderSoundRef.current) {
-            const { sound } = await Audio.Sound.createAsync(
-              require('../../../assets/sounds/incomming-order-sound.mp3'),
-              {
-                isLooping: true,
-                volume: 1,
-              },
-            );
-
-            if (!isActive) {
-              await sound.stopAsync().catch(() => undefined);
-              await sound.unloadAsync().catch(() => undefined);
-              return;
-            }
-
-            incomingOrderSoundRef.current = sound;
-          }
-
-          if (incomingOrderSoundRef.current) {
-            await incomingOrderSoundRef.current.replayAsync();
-          }
-        } else if (incomingOrderSoundRef.current) {
-          await incomingOrderSoundRef.current.stopAsync();
-        }
-      } catch (error) {
-        console.warn('Unable to manage incoming order sound', error);
-      }
-    };
-
-    ensurePlaybackState();
-
-    return () => {
-      isActive = false;
-    };
-  }, [isIncomingOrderVisible]);
-
-  useEffect(() => () => {
-    const sound = incomingOrderSoundRef.current;
-    incomingOrderSoundRef.current = null;
-
-    if (sound) {
-      sound.stopAsync().catch(() => undefined);
-      sound.unloadAsync().catch(() => undefined);
-    }
   }, []);
 
   useEffect(() => {
@@ -454,16 +351,6 @@ export const DashboardScreen: React.FC = () => {
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!upcomingOrder || !upcomingOrder.upcoming) {
-      return;
-    }
-
-    setPendingIncomingOrder(upcomingOrder);
-    setIncomingCountdown(INCOMING_ORDER_COUNTDOWN_SECONDS);
-    setIncomingOrderVisible(true);
-  }, [upcomingOrder]);
 
   useEffect(() => {
     if (!ongoingOrderUpdate) {
@@ -550,15 +437,8 @@ export const DashboardScreen: React.FC = () => {
   }, [stopStatusChangeSound]);
 
   useEffect(() => {
-    const hasOrder = Boolean(ongoingOrder);
-
-    setOngoingOrderVisible(hasOrder);
-
-    if (hasOrder && !pendingIncomingOrder) {
-      setIncomingOrderVisible(false);
-      clearUpcomingOrder();
-    }
-  }, [clearUpcomingOrder, ongoingOrder, pendingIncomingOrder]);
+    setOngoingOrderVisible(Boolean(ongoingOrder));
+  }, [ongoingOrder]);
 
   useEffect(() => {
     scanAvailabilityRef.current = isScanToPickupVisible;
@@ -877,41 +757,6 @@ export const DashboardScreen: React.FC = () => {
     }
   }, [userRegion]);
 
-  useEffect(() => {
-    if (!isIncomingOrderVisible) {
-      return;
-    }
-
-    const intervalId = setInterval(() => {
-      setIncomingCountdown((prev) => {
-        if (prev <= 0) {
-          clearInterval(intervalId);
-          return 0;
-        }
-
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [isIncomingOrderVisible]);
-
-  useEffect(() => {
-    if (!isIncomingOrderVisible) {
-      setIncomingCountdown(INCOMING_ORDER_COUNTDOWN_SECONDS);
-    }
-  }, [isIncomingOrderVisible]);
-
-  useEffect(() => {
-    if (incomingCountdown <= 0 && isIncomingOrderVisible) {
-      setIncomingOrderVisible(false);
-      setPendingIncomingOrder(null);
-      clearUpcomingOrder();
-    }
-  }, [clearUpcomingOrder, incomingCountdown, isIncomingOrderVisible]);
-
   const shiftFinishableDisplay = useMemo(() => {
     if (!currentShift?.finishableAt) {
       return null;
@@ -1033,44 +878,6 @@ export const DashboardScreen: React.FC = () => {
       updateDriverAvailability,
     ],
   );
-
-  const handleAcceptOrder = useCallback(async () => {
-    if (isAcceptingOrder) {
-      return;
-    }
-
-    const orderId = pendingIncomingOrder?.id;
-
-    if (!orderId) {
-      return;
-    }
-
-    setIsAcceptingOrder(true);
-
-    try {
-      const order = await acceptOrder(orderId);
-      setOngoingOrder(order ?? EMPTY_ONGOING_ORDER_PLACEHOLDER);
-      setIncomingOrderVisible(false);
-      setPendingIncomingOrder(null);
-      clearUpcomingOrder();
-    } catch (error) {
-      console.warn('[Dashboard] Failed to accept order', error);
-      Alert.alert('Unable to accept order', 'Please try again in a moment.');
-    } finally {
-      setIsAcceptingOrder(false);
-    }
-  }, [
-    acceptOrder,
-    clearUpcomingOrder,
-    isAcceptingOrder,
-    pendingIncomingOrder,
-  ]);
-
-  const handleDeclineOrder = useCallback(() => {
-    setIncomingOrderVisible(false);
-    setPendingIncomingOrder(null);
-    clearUpcomingOrder();
-  }, [clearUpcomingOrder]);
 
   const callTargetLabel = shouldCallRestaurant ? 'restaurant' : 'client';
 
@@ -1497,18 +1304,6 @@ export const DashboardScreen: React.FC = () => {
           </View>
         </View>
 
-        {isIncomingOrderVisible && (
-          <>
-            <PlatformBlurView intensity={45} tint="dark" style={styles.blurOverlay} />
-            <IncomingOrderOverlay
-              countdownSeconds={incomingCountdown}
-              onAccept={handleAcceptOrder}
-              onDecline={handleDeclineOrder}
-              orderLabel={incomingOrderLabel}
-              subtitle={incomingOrderSubtitle}
-            />
-          </>
-        )}
         {isOrderDetailsVisible && (
           <>
             <PlatformBlurView intensity={45} tint="dark" style={styles.blurOverlay} />
@@ -1532,9 +1327,7 @@ export const DashboardScreen: React.FC = () => {
         )}
         {statusOverlay && (
           <>
-            {!isIncomingOrderVisible && (
-              <PlatformBlurView intensity={45} tint="dark" style={styles.blurOverlay} />
-            )}
+            <PlatformBlurView intensity={45} tint="dark" style={styles.blurOverlay} />
             <OngoingOrderStatusOverlay
               badgeLabel={statusOverlay.badgeLabel}
               title={statusOverlay.title}
