@@ -5,6 +5,7 @@ import type {
   DriverEarningsQuery,
   DriverEarningsResponse,
   DriverShiftEarningsResponse,
+  DriverShiftDetail,
 } from '../types/driver';
 
 type UpdateDriverLocationPayload = {
@@ -183,6 +184,16 @@ export const getDriverShiftEarnings = async (
     {
       params: filteredParams,
     },
+  );
+
+  return response.data;
+};
+
+export const getDriverShiftDetails = async (
+  shiftId: number | string,
+): Promise<DriverShiftDetail> => {
+  const response = await apiClient.get<DriverShiftDetail>(
+    `/api/driver/earnings/shifts/${shiftId}`,
   );
 
   return response.data;

@@ -1,8 +1,18 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
 import { ScaledSheet, vs } from 'react-native-size-matters';
 import { Image } from 'expo-image';
-import type { DriverShiftEarning } from '../types/driver';
+import type {
+  DriverShiftDetail,
+  DriverShiftEarning,
+} from '../types/driver';
+import { getDriverShiftDetails } from '../services/driverService';
 
 type ShiftDetailsOverlayProps = {
   onClose: () => void;
@@ -49,6 +59,51 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
     return null;
   }
 
+  const [shiftDetails, setShiftDetails] = useState<DriverShiftDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchShiftDetails = useCallback(async () => {
+    if (!shift) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const details = await getDriverShiftDetails(shift.id);
+      setShiftDetails(details);
+    } catch (err) {
+      console.error('Failed to fetch shift details', err);
+      setError('Unable to load shift details. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [shift]);
+
+  useEffect(() => {
+    setShiftDetails(null);
+    fetchShiftDetails();
+  }, [fetchShiftDetails]);
+
+  const shiftDate = useMemo(() => {
+    if (shiftDetails?.date) {
+      const parsedDate = new Date(shiftDetails.date);
+
+      if (!Number.isNaN(parsedDate.getTime())) {
+        return parsedDate.toLocaleDateString('en-GB', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        });
+      }
+    }
+
+    return null;
+  }, [shiftDetails?.date]);
+
   return (
     <View style={styles.overlay}>
       <View style={styles.card}>
@@ -67,6 +122,11 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
             <Text allowFontScaling={false} style={styles.summaryTime}>
               {formatShiftWindow(shift.startTime, shift.endTime)}
             </Text>
+            {shiftDate && (
+              <Text allowFontScaling={false} style={styles.summaryDateText}>
+                {shiftDate}
+              </Text>
+            )}
             <Text allowFontScaling={false} style={styles.summaryAmount}>
               {formatCurrency(shift.total)}
             </Text>
@@ -79,12 +139,89 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
 
           <Text allowFontScaling={false} style={styles.sectionTitle}>Shift Breakdown</Text>
 
-          <View style={styles.emptyBox}>
-            <Text allowFontScaling={false} style={styles.emptyTitle}>No additional details</Text>
-            <Text allowFontScaling={false} style={styles.emptyMessage}>
-              Shift breakdown data is not available for this shift.
-            </Text>
-          </View>
+          {isLoading && (
+            <View style={styles.emptyBox}>
+              <ActivityIndicator color="#CA251B" size="small" />
+              <Text allowFontScaling={false} style={styles.emptyMessage}>
+                Loading shift details...
+              </Text>
+            </View>
+          )}
+
+          {!isLoading && error && (
+            <View style={styles.emptyBox}>
+              <Text allowFontScaling={false} style={styles.emptyTitle}>{error}</Text>
+              <TouchableOpacity
+                onPress={fetchShiftDetails}
+                activeOpacity={0.85}
+                style={styles.retryBtn}
+              >
+                <Text allowFontScaling={false} style={styles.retryText}>Try again</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {!isLoading && !error && shiftDetails?.orders.length === 0 && (
+            <View style={styles.emptyBox}>
+              <Text allowFontScaling={false} style={styles.emptyTitle}>No orders recorded</Text>
+              <Text allowFontScaling={false} style={styles.emptyMessage}>
+                This shift does not have any completed orders yet.
+              </Text>
+            </View>
+          )}
+
+          {!isLoading && !error && shiftDetails?.orders.length ? (
+            <View style={styles.orderList}>
+              {shiftDetails.orders.map((order) => (
+                <View key={order.orderId} style={styles.orderCard}>
+                  <View style={styles.orderHeader}>
+                    <Text allowFontScaling={false} style={styles.orderTitle}>
+                      {`Order #${order.orderId}`}
+                    </Text>
+                    <Text allowFontScaling={false} style={styles.orderAmount}>
+                      {formatCurrency(order.driverEarningFromOrder)}
+                    </Text>
+                  </View>
+                  <View style={styles.orderRow}>
+                    <Text allowFontScaling={false} style={styles.orderLabel}>Restaurant</Text>
+                    <Text allowFontScaling={false} style={styles.orderValue}>
+                      {order.restaurantName || 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={styles.orderRow}>
+                    <Text allowFontScaling={false} style={styles.orderLabel}>Pickup</Text>
+                    <Text allowFontScaling={false} style={styles.orderValue}>
+                      {order.pickUpLocation || 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={styles.orderRow}>
+                    <Text allowFontScaling={false} style={styles.orderLabel}>Drop-off</Text>
+                    <Text allowFontScaling={false} style={styles.orderValue}>
+                      {order.deliveryLocation || 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={styles.orderTotalsRow}>
+                    <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Order Total</Text>
+                    <Text allowFontScaling={false} style={styles.orderTotalsValue}>
+                      {formatCurrency(order.orderTotal)}
+                    </Text>
+                  </View>
+                  <View style={styles.orderTotalsRow}>
+                    <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Delivery Fee</Text>
+                    <Text allowFontScaling={false} style={styles.orderTotalsValue}>
+                      {formatCurrency(order.deliveryFee)}
+                    </Text>
+                  </View>
+                  <View style={styles.orderTotalsRow}>
+                    <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Items</Text>
+                    <Text allowFontScaling={false} style={styles.orderTotalsValue}>
+                      {order.orderItemsCount ?? '--'}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
           <TouchableOpacity onPress={onClose} activeOpacity={0.85} style={styles.closeBtn}>
             <Text allowFontScaling={false} style={styles.closeText}>Close</Text>
@@ -149,6 +286,11 @@ const styles = ScaledSheet.create({
     fontSize: '20@ms',
     marginTop: '6@vs',
   },
+  summaryDateText: {
+    color: '#6B7280',
+    fontSize: '12@ms',
+    marginTop: '4@vs',
+  },
   sectionTitle: {
     color: '#17213A',
     fontWeight: '800',
@@ -177,6 +319,65 @@ const styles = ScaledSheet.create({
     gap: 6,
     elevation: 2,
   },
+  orderList: {
+    gap: 12,
+  },
+  orderCard: {
+    backgroundColor: '#FFF',
+    borderRadius: '14@ms',
+    borderWidth: 1,
+    borderColor: '#E6E8EB',
+    padding: '16@s',
+    elevation: 2,
+    gap: 8,
+  },
+  orderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  orderTitle: {
+    color: '#17213A',
+    fontWeight: '700',
+    fontSize: '14@ms',
+  },
+  orderAmount: {
+    color: '#10B981',
+    fontWeight: '700',
+    fontSize: '14@ms',
+  },
+  orderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  orderLabel: {
+    color: '#6B7280',
+    fontWeight: '600',
+    fontSize: '12@ms',
+    flexShrink: 0,
+  },
+  orderValue: {
+    color: '#17213A',
+    fontSize: '12@ms',
+    flex: 1,
+    textAlign: 'right',
+  },
+  orderTotalsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  orderTotalsLabel: {
+    color: '#6B7280',
+    fontWeight: '600',
+    fontSize: '12@ms',
+  },
+  orderTotalsValue: {
+    color: '#17213A',
+    fontWeight: '600',
+    fontSize: '12@ms',
+  },
   emptyTitle: {
     color: '#17213A',
     fontWeight: '700',
@@ -186,6 +387,18 @@ const styles = ScaledSheet.create({
     color: '#6B7280',
     fontSize: '12@ms',
     textAlign: 'center',
+  },
+  retryBtn: {
+    marginTop: '8@vs',
+    paddingVertical: '8@vs',
+    paddingHorizontal: '18@s',
+    borderRadius: '12@ms',
+    backgroundColor: '#CA251B',
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: '12@ms',
   },
   closeBtn: {
     marginTop: '18@vs',

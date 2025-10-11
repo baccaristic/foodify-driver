@@ -23,3 +23,24 @@ export type DriverShiftEarningsResponse = {
   total: number;
   shifts: DriverShiftEarning[];
 };
+
+export type DriverShiftOrder = {
+  orderId: number;
+  deliveryId: number;
+  pickUpLocation: string;
+  deliveryLocation: string;
+  orderTotal: number;
+  driverEarningFromOrder: number;
+  deliveryFee: number;
+  restaurantName: string;
+  orderItemsCount: number;
+};
+
+export type DriverShiftDetail = {
+  shiftId: number;
+  from: string;
+  to: string;
+  total: number;
+  date: string;
+  orders: DriverShiftOrder[];
+};
