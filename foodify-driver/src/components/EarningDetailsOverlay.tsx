@@ -98,20 +98,17 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
   }, []);
 
   const shiftDate = useMemo(() => {
-    if (shiftDetails?.date) {
-      const parsedDate = new Date(shiftDetails.date);
-
-      if (!Number.isNaN(parsedDate.getTime())) {
-        return parsedDate.toLocaleDateString('en-GB', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        });
-      }
+    if (!shiftDetails?.date) {
+      return null;
     }
 
-    return null;
+    const isoDateMatch = shiftDetails.date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoDateMatch) {
+      const [, year, month, day] = isoDateMatch;
+      return `${day}/${month}/${year}`;
+    }
+
+    return shiftDetails.date;
   }, [shiftDetails?.date]);
 
   return (
