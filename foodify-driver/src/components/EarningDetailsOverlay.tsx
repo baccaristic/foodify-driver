@@ -129,14 +129,14 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
 
           <View style={styles.summaryBox}>
             <Text allowFontScaling={false} style={styles.summaryDate}>{`Shift #${shift.id}`}</Text>
-            <Text allowFontScaling={false} style={styles.summaryTime}>
-              {formatShiftWindow(shift.startTime, shift.endTime)}
-            </Text>
             {shiftDate && (
               <Text allowFontScaling={false} style={styles.summaryDateText}>
                 {shiftDate}
               </Text>
             )}
+            <Text allowFontScaling={false} style={styles.summaryTime}>
+              {formatShiftWindow(shift.startTime, shift.endTime)}
+            </Text>
             <Text allowFontScaling={false} style={styles.summaryAmount}>
               {formatCurrency(shift.total)}
             </Text>
