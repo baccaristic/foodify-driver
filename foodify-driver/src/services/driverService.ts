@@ -1,6 +1,7 @@
 import { apiClient } from './api';
 import type { DriverShift, DriverShiftBalance } from '../types/shift';
 import type { OrderDto } from '../types/order';
+import type { DriverEarningsQuery, DriverEarningsResponse } from '../types/driver';
 
 type UpdateDriverLocationPayload = {
   driverId: number;
@@ -112,6 +113,38 @@ export const acceptOrder = async (orderId: number | string): Promise<OrderDto> =
   const response = await apiClient.post<OrderDto>(
     `/api/driver/accept-order/${orderId}`,
   );
+
+  return response.data;
+};
+
+export const getDriverEarnings = async (
+  params?: DriverEarningsQuery,
+): Promise<DriverEarningsResponse> => {
+  let filteredParams: Record<string, string> | undefined;
+
+  if (params) {
+    const candidate: Record<string, string> = {};
+
+    if (params.dateOn) {
+      candidate.dateOn = params.dateOn;
+    }
+
+    if (params.from) {
+      candidate.from = params.from;
+    }
+
+    if (params.to) {
+      candidate.to = params.to;
+    }
+
+    if (Object.keys(candidate).length > 0) {
+      filteredParams = candidate;
+    }
+  }
+
+  const response = await apiClient.get<DriverEarningsResponse>('/api/driver/earnings', {
+    params: filteredParams,
+  });
 
   return response.data;
 };

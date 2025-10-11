@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,24 +6,68 @@ import {
   StyleSheet,
   Dimensions,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { moderateScale, verticalScale, s } from 'react-native-size-matters';
 import { Calendar } from 'react-native-calendars';
-import { Wallet, Calendar as CalendarIcon, DollarSign, CircleDollarSign } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { Calendar as CalendarIcon, CircleDollarSign } from 'lucide-react-native';
 import HeaderWithBackButton from '../../../components/HeaderWithBackButton';
 import { Image } from 'expo-image';
+import { getDriverEarnings } from '../../../services/driverService';
+import type { DriverEarningsQuery, DriverEarningsResponse } from '../../../types/driver';
 
 
 const { width } = Dimensions.get('screen');
 
 export const WalletScreen: React.FC = () => {
-  const navigation = useNavigation();
-
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedRange, setSelectedRange] = useState<{ start?: string; end?: string }>({});
-  const [earnings, setEarnings] = useState('123,32 dt');
-  const [balance, setBalance] = useState('123.45 dt');
+  const [appliedRange, setAppliedRange] = useState<{ start?: string; end?: string } | null>(null);
+  const [earningsData, setEarningsData] = useState<DriverEarningsResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const formatCurrency = (value?: number | null) => {
+    if (value === null || value === undefined) {
+      return '--';
+    }
+
+    return `${value.toLocaleString('fr-FR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} dt`;
+  };
+
+  const formatDateForApi = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-');
+
+    return `${day}/${month}/${year}`;
+  };
+
+  const fetchEarnings = useCallback(async (
+    params?: DriverEarningsQuery,
+  ): Promise<boolean> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = await getDriverEarnings(params);
+      setEarningsData(data);
+
+      return true;
+    } catch (err) {
+      console.error('Failed to fetch earnings', err);
+      setError('Unable to load earnings. Please try again.');
+
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEarnings();
+  }, [fetchEarnings]);
 
   const handleDateSelect = (day: any) => {
     if (!selectedRange.start || (selectedRange.start && selectedRange.end)) {
@@ -59,29 +103,72 @@ export const WalletScreen: React.FC = () => {
   };
 
   const handleApplyRange = () => {
-    setShowCalendar(false);
+    const { start, end } = selectedRange;
+
+    const params: DriverEarningsQuery = {};
+    let nextAppliedRange: { start?: string; end?: string } | null = null;
+
+    if (start && end) {
+      params.from = formatDateForApi(start);
+      params.to = formatDateForApi(end);
+      nextAppliedRange = { start, end };
+    } else if (start) {
+      params.dateOn = formatDateForApi(start);
+      nextAppliedRange = { start };
+    }
+
+    const hasParams = Object.keys(params).length > 0;
+
+    fetchEarnings(hasParams ? params : undefined).then((success) => {
+      if (success) {
+        setAppliedRange(nextAppliedRange);
+      }
+
+      setShowCalendar(false);
+    });
   };
 
   const resetRange = () => {
     setSelectedRange({});
+
+    fetchEarnings().then((success) => {
+      if (success) {
+        setAppliedRange(null);
+      }
+    });
   };
 
   const renderEarningsSummary = () => {
-    if (selectedRange.start && selectedRange.end) {
+    if (appliedRange?.start) {
+      const hasDistinctEnd = Boolean(
+        appliedRange.end && appliedRange.end !== appliedRange.start,
+      );
+      const endDate = appliedRange.end ?? appliedRange.start;
+
       return (
         <View style={styles.rangeSummary}>
           <View style={styles.rangeRow}>
-            <Text allowFontScaling={false} style={styles.rangeLabel}>From</Text>
-            <Text allowFontScaling={false} style={styles.rangeDate}>{formatDate(selectedRange.start)}</Text>
+            <Text allowFontScaling={false} style={styles.rangeLabel}>
+              {hasDistinctEnd ? 'From' : 'Date'}
+            </Text>
+            <Text allowFontScaling={false} style={styles.rangeDate}>
+              {formatDate(appliedRange.start)}
+            </Text>
           </View>
-          <View style={styles.rangeRow}>
-            <Text allowFontScaling={false} style={styles.rangeLabel}>To</Text>
-            <Text allowFontScaling={false} style={styles.rangeDate}>{formatDate(selectedRange.end)}</Text>
-          </View>
+          {hasDistinctEnd && (
+            <View style={styles.rangeRow}>
+              <Text allowFontScaling={false} style={styles.rangeLabel}>To</Text>
+              <Text allowFontScaling={false} style={styles.rangeDate}>
+                {formatDate(endDate)}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.totalRow}>
             <Text allowFontScaling={false} style={styles.totalText}>Total earnings</Text>
-            <Text allowFontScaling={false} style={styles.totalValue}>{earnings}</Text>
+            <Text allowFontScaling={false} style={styles.totalValue}>
+              {formatCurrency(earningsData?.totalEarnings ?? null)}
+            </Text>
           </View>
         </View>
       );
@@ -91,15 +178,21 @@ export const WalletScreen: React.FC = () => {
       <View style={styles.summaryBlock}>
         <View style={styles.summaryRow}>
           <Text allowFontScaling={false} style={styles.summaryLabel}>Today</Text>
-          <Text allowFontScaling={false} style={styles.summaryValue}>{earnings}</Text>
+          <Text allowFontScaling={false} style={styles.summaryValue}>
+            {formatCurrency(earningsData?.todayBalance ?? null)}
+          </Text>
         </View>
         <View style={styles.summaryRow}>
           <Text allowFontScaling={false} style={styles.summaryLabel}>This Week</Text>
-          <Text allowFontScaling={false} style={styles.summaryValue}>1213,32 dt</Text>
+          <Text allowFontScaling={false} style={styles.summaryValue}>
+            {formatCurrency(earningsData?.weekBalance ?? null)}
+          </Text>
         </View>
         <View style={styles.summaryRow}>
           <Text allowFontScaling={false} style={styles.summaryLabel}>This Month</Text>
-          <Text allowFontScaling={false} style={styles.summaryValue}>1213,32 dt</Text>
+          <Text allowFontScaling={false} style={styles.summaryValue}>
+            {formatCurrency(earningsData?.monthBalance ?? null)}
+          </Text>
         </View>
       </View>
     );
@@ -128,13 +221,15 @@ export const WalletScreen: React.FC = () => {
         <View style={styles.balanceCard}>
           <View>
             <Text allowFontScaling={false} style={styles.balanceLabel}>Available Balance</Text>
-            <Text allowFontScaling={false} style={styles.balanceAmount}>{balance}</Text>
+            <Text allowFontScaling={false} style={styles.balanceAmount}>
+              {formatCurrency(earningsData?.avilableBalance ?? null)}
+            </Text>
             <Text allowFontScaling={false} style={styles.balanceSub}>Next payout on Friday, Oct 27</Text>
           </View>
           <Image
             source={require('../../../../assets/wallet.png')}
             style={styles.icon}
-          contentFit="contain"
+            contentFit="contain"
           />
         </View>
 
@@ -146,11 +241,24 @@ export const WalletScreen: React.FC = () => {
 
           <TouchableOpacity
             style={styles.calendarButton}
-            onPress={() => setShowCalendar(true)}
+            onPress={() => {
+              setSelectedRange(appliedRange ?? {});
+              setShowCalendar(true);
+            }}
           >
             <CalendarIcon color="#17213A" size={moderateScale(22)} strokeWidth={2.2} />
           </TouchableOpacity>
         </View>
+
+        {isLoading && (
+          <ActivityIndicator color="#CA251B" style={styles.loadingIndicator} />
+        )}
+
+        {error && (
+          <Text allowFontScaling={false} style={styles.errorText}>
+            {error}
+          </Text>
+        )}
 
         {renderEarningsSummary()}
 
@@ -327,5 +435,14 @@ const styles = StyleSheet.create({
     color: '#CA251B',
     fontWeight: '600',
     marginVertical: verticalScale(8),
+  },
+  errorText: {
+    color: '#CA251B',
+    marginTop: verticalScale(12),
+    fontSize: moderateScale(12),
+    fontWeight: '600',
+  },
+  loadingIndicator: {
+    marginTop: verticalScale(12),
   },
 });
