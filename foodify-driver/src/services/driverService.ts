@@ -1,7 +1,12 @@
 import { apiClient } from './api';
 import type { DriverShift, DriverShiftBalance } from '../types/shift';
 import type { OrderDto } from '../types/order';
-import type { DriverEarningsQuery, DriverEarningsResponse } from '../types/driver';
+import type {
+  DriverEarningsQuery,
+  DriverEarningsResponse,
+  DriverShiftEarningsResponse,
+  DriverShiftDetail,
+} from '../types/driver';
 
 type UpdateDriverLocationPayload = {
   driverId: number;
@@ -145,6 +150,51 @@ export const getDriverEarnings = async (
   const response = await apiClient.get<DriverEarningsResponse>('/api/driver/earnings', {
     params: filteredParams,
   });
+
+  return response.data;
+};
+
+export const getDriverShiftEarnings = async (
+  params?: DriverEarningsQuery,
+): Promise<DriverShiftEarningsResponse> => {
+  let filteredParams: Record<string, string> | undefined;
+
+  if (params) {
+    const candidate: Record<string, string> = {};
+
+    if (params.dateOn) {
+      candidate.dateOn = params.dateOn;
+    }
+
+    if (params.from) {
+      candidate.from = params.from;
+    }
+
+    if (params.to) {
+      candidate.to = params.to;
+    }
+
+    if (Object.keys(candidate).length > 0) {
+      filteredParams = candidate;
+    }
+  }
+
+  const response = await apiClient.get<DriverShiftEarningsResponse>(
+    '/api/driver/earnings/shifts',
+    {
+      params: filteredParams,
+    },
+  );
+
+  return response.data;
+};
+
+export const getDriverShiftDetails = async (
+  shiftId: number | string,
+): Promise<DriverShiftDetail> => {
+  const response = await apiClient.get<DriverShiftDetail>(
+    `/api/driver/earnings/shifts/${shiftId}`,
+  );
 
   return response.data;
 };
