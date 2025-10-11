@@ -12,10 +12,12 @@ import { ScaledSheet, s, vs, moderateScale } from 'react-native-size-matters';
 import HeaderWithBackButton from '../../../components/HeaderWithBackButton';
 import EarningDetailsOverlay from '../../../components/EarningDetailsOverlay';
 import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function EarningsScreen() {
   const [showDetails, setShowDetails] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const insets = useSafeAreaInsets();
 
   const data = [
     { id: '1', title: '2X Pizza Pepperoni Di Napoli', time: '13:00 - 13:30', code: '1234567898765432', amount: '19,300 DT' },
@@ -30,6 +32,7 @@ export default function EarningsScreen() {
 
   return (
     <>
+    <View style={{paddingTop:insets.top, paddingBottom:insets.bottom}}>
       <View style={styles.header}>
         <HeaderWithBackButton title="Earnings" titleMarginLeft={s(50)} />
       </View>
@@ -62,17 +65,8 @@ export default function EarningsScreen() {
         </View>
 
         <View style={styles.summaryCard}>
-          <View style={styles.summaryLeft}>
             <Text allowFontScaling={false} style={styles.summaryLabel}>Total Income</Text>
             <Text allowFontScaling={false} style={styles.summaryValue}>123.45 dt</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.summaryRight}>
-            <Text allowFontScaling={false} style={styles.summaryLabel}>Deliveries</Text>
-            <Text allowFontScaling={false} style={styles.summarySub}>17 Completed | 2 Cancelled</Text>
-          </View>
         </View>
 
         {data.map((item) => (
@@ -113,23 +107,27 @@ export default function EarningsScreen() {
               </View>
             </View>
           </TouchableOpacity>
+          
         ))}
+        
       </ScrollView>
 
       <Modal visible={showDetails} transparent animationType="fade">
         <EarningDetailsOverlay onClose={() => setShowDetails(false)} item={selectedItem} />
       </Modal>
+            </View>
+
     </>
   );
 }
 
 const styles = ScaledSheet.create({
+
   header: {
     paddingTop: moderateScale(15),
   },
 
   container: {
-    flex: 1,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: '16@s',
     borderTopColor: '#F9FAFB',
@@ -197,19 +195,6 @@ const styles = ScaledSheet.create({
     marginBottom: '20@vs',
     elevation: 2,
   },
-  divider: {
-    width: 1,
-    height: '55@vs',
-    backgroundColor: '#CA251B',
-    marginHorizontal: moderateScale(10),
-  },
-  summaryLeft: {
-    flex: 1,
-  },
-  summaryRight: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
   summaryLabel: {
     color: '#17213A',
     fontWeight: '600',
@@ -219,13 +204,7 @@ const styles = ScaledSheet.create({
     color: '#CA251B',
     fontWeight: '600',
     fontSize: '20@ms',
-    marginTop: '4@vs',
-  },
-  summarySub: {
-    color: '#17213A',
-    fontWeight: '600',
-    fontSize: '11@ms',
-    marginTop: '4@vs',
+    alignSelf:'flex-end'
   },
 
   itemCard: {

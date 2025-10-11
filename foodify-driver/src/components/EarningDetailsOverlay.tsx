@@ -1,70 +1,126 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { ScaledSheet, s, vs, moderateScale } from 'react-native-size-matters';
 import { Image } from 'expo-image';
-import { CheckCircle } from 'lucide-react-native';
+import { HandPlatter, ChevronDown, ChevronUp } from 'lucide-react-native';
 
-const { width } = Dimensions.get('screen');
+export default function ShiftDetailsOverlay({ onClose }: any) {
+  const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
-export default function EarningDetailsOverlay({ onClose, item }: any) {
+  const data = [
+    { id: '1', title: '2 Items - Di Napoli', time: '13:00 - 13:30', code: '1234567898765432', amount: '19,300 DT' },
+    { id: '2', title: '2 Items - Di Napoli', time: '13:00 - 13:30', code: '1234567898765432', amount: '19,300 DT' },
+    { id: '3', title: '2 Items - Di Napoli', time: '13:00 - 13:30', code: '1234567898765432', amount: '19,300 DT' },
+  ];
+
+  const toggleExpand = (id: string) => {
+    setExpandedItem(expandedItem === id ? null : id);
+  };
+
   return (
     <View style={styles.overlay}>
       <View style={styles.card}>
-        <Image
-          source={require('../../assets/moto.png')} 
-          style={styles.icon}
-          contentFit="contain"
-        />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: vs(30) }}
+        >
+          {/* Icon */}
+          <Image
+            source={require('../../assets/moto.png')}
+            style={styles.icon}
+            contentFit="contain"
+          />
 
-        <Text allowFontScaling={false} style={styles.amount}>123.45 dt</Text>
-        <Text allowFontScaling={false} style={styles.deliveryId}>
-          Delivery #{item?.code ?? '1234567898'}
-        </Text>
+          {/* Shift Summary */}
+          <View style={styles.summaryBox}>
+            <Text allowFontScaling={false} style={styles.summaryDate}>23 November 2025</Text>
+            <Text allowFontScaling={false} style={styles.summaryTime}>From : 13:00  to 16:30</Text>
+            <Text allowFontScaling={false} style={styles.summaryAmount}>123.45 dt</Text>
+          </View>
 
-        <View style={styles.statusBox}>
-          <Text allowFontScaling={false} style={styles.statusText}>Completed</Text>
-          <CheckCircle color="#FFF" size={moderateScale(14)} style={{ marginLeft: s(6) }} />
-        </View>
+          {/* Section Title */}
+          <Text allowFontScaling={false} style={styles.sectionTitle}>Shift Breakdown</Text>
 
-        <Text allowFontScaling={false} style={styles.timeText}>
-          Accepted : 11:30 | Completed: 12:01
-        </Text>
+          {/* Orders List */}
+          {data.map((item) => (
+            <View key={item.id} style={styles.itemCard}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => toggleExpand(item.id)}
+                style={styles.itemHeader}
+              >
+                <View style={styles.itemLeft}>
+                  <HandPlatter size={moderateScale(32)} color="#CA251B" />
+                  <View>
+                    <Text allowFontScaling={false} style={styles.itemTitle}>{item.title}</Text>
+                    <Text allowFontScaling={false} style={styles.itemTime}>{item.time}</Text>
+                    <Text allowFontScaling={false} style={styles.itemCode}>{item.code}</Text>
+                  </View>
+                </View>
 
-        <Text allowFontScaling={false} style={styles.sectionTitle}>Earnings Breakdown</Text>
-        <View style={styles.infoBox}>
-          <View style={styles.row}>
-            <Text allowFontScaling={false} style={styles.label}>Base fee</Text>
-            <Text allowFontScaling={false} style={styles.value}>xx.00 dt</Text>
-          </View>
-          <View style={styles.row}>
-            <Text allowFontScaling={false} style={styles.label}>Tips</Text>
-            <Text allowFontScaling={false} style={styles.value}>xx.00 dt</Text>
-          </View>
-          <View style={[styles.row, { marginTop: vs(6) }]}>
-            <Text allowFontScaling={false} style={styles.totalLabel}>Total Earnings</Text>
-            <Text allowFontScaling={false} style={styles.totalValue}>xx.00 dt</Text>
-          </View>
-        </View>
+                <View style={styles.itemRight}>
+                  <Text allowFontScaling={false} style={styles.itemAmount}>{item.amount}</Text>
+                  {expandedItem === item.id ? (
+                    <ChevronUp
+                      color="white"
+                      size={moderateScale(24)}
+                      style={styles.arrowIcon}
+                    />
+                  ) : (
+                    <ChevronDown
+                      color="white"
+                      size={moderateScale(24)}
+                      style={styles.arrowIcon}
+                    />
+                  )}
+                </View>
+              </TouchableOpacity>
 
-        <Text allowFontScaling={false} style={styles.sectionTitle}>Location & Order Info</Text>
-        <View style={styles.infoBox}>
-          <View style={styles.row}>
-            <Text allowFontScaling={false} style={styles.infoLabel}>Pickup Location</Text>
-            <Text allowFontScaling={false} style={styles.infoValue}>Di Napoli Menzah 5</Text>
-          </View>
-          <View style={styles.row}>
-            <Text allowFontScaling={false} style={styles.infoLabel}>Order Code</Text>
-            <Text allowFontScaling={false} style={styles.infoValue}>1234567898765432</Text>
-          </View>
-          <View style={styles.row}>
-            <Text allowFontScaling={false} style={styles.infoLabel}>Delivery ID</Text>
-            <Text allowFontScaling={false} style={styles.infoValue}>876543234567</Text>
-          </View>
-        </View>
+              {/* Expanded Details */}
+              {expandedItem === item.id && (
+                <View style={styles.expandedBox}>
+                  <View style={styles.redLine} />
+                  <View style={styles.breakdownRow}>
+                    <Text allowFontScaling={false} style={styles.label}>Base fee</Text>
+                    <Text allowFontScaling={false} style={styles.value}>xx.00 dt</Text>
+                  </View>
+                  <View style={styles.breakdownRow}>
+                    <Text allowFontScaling={false} style={styles.label}>Tips</Text>
+                    <Text allowFontScaling={false} style={styles.value}>xx.00 dt</Text>
+                  </View>
+                  <View style={styles.breakdownRow}>
+                    <Text allowFontScaling={false} style={styles.totalLabel}>Total Earnings</Text>
+                    <Text allowFontScaling={false} style={styles.totalValue}>xx.00 dt</Text>
+                  </View>
 
-        <TouchableOpacity onPress={onClose} activeOpacity={0.85} style={styles.closeBtn}>
-          <Text allowFontScaling={false} style={styles.closeText}>Close</Text>
-        </TouchableOpacity>
+                  <Text allowFontScaling={false} style={styles.subSectionTitle}>Location & Order Info</Text>
+
+                  <View style={styles.infoRow}>
+                    <Text allowFontScaling={false} style={styles.infoLabel}>Pickup Location</Text>
+                    <Text allowFontScaling={false} style={styles.infoValue}>Di Napoli Menzah 5</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text allowFontScaling={false} style={styles.infoLabel}>Delivery Location</Text>
+                    <Text allowFontScaling={false} style={styles.infoValue}>Résidence Elyes, Soukra</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text allowFontScaling={false} style={styles.infoLabel}>Order Code</Text>
+                    <Text allowFontScaling={false} style={styles.infoValue}>1234567898765432</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text allowFontScaling={false} style={styles.infoLabel}>Delivery ID</Text>
+                    <Text allowFontScaling={false} style={styles.infoValue}>876543234567</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          ))}
+
+          {/* Close Button */}
+          <TouchableOpacity onPress={onClose} activeOpacity={0.85} style={styles.closeBtn}>
+            <Text allowFontScaling={false} style={styles.closeText}>Close</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
     </View>
   );
@@ -84,7 +140,6 @@ const styles = ScaledSheet.create({
     borderRadius: '20@ms',
     paddingVertical: '20@vs',
     paddingHorizontal: '18@s',
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -93,63 +148,97 @@ const styles = ScaledSheet.create({
   icon: {
     width: '110@s',
     height: '110@s',
+    alignSelf: 'center',
     marginBottom: '10@vs',
   },
-  amount: {
-    color: '#CA251B',
-    fontWeight: '800',
-    fontSize: '22@ms',
-    marginTop: '4@vs',
+
+  summaryBox: {
+    backgroundColor: '#FFF',
+    borderRadius: '14@ms',
+    borderWidth: 1,
+    borderColor: '#E6E8EB',
+    padding: '14@s',
+    marginBottom: '18@vs',
+    alignItems: 'center',
+    elevation: 2,
   },
-  deliveryId: {
-    color: '#9CA3AF',
-    fontSize: '12@ms',
+  summaryDate: {
+    color: '#CA251B',
+    fontWeight: '700',
+    fontSize: '15@ms',
+  },
+  summaryTime: {
+    color: '#17213A',
+    fontWeight: '600',
+    fontSize: '13@ms',
     marginTop: '2@vs',
   },
-
-  statusBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#CA251B',
-    borderRadius: '8@ms',
-    paddingHorizontal: '12@s',
-    paddingVertical: '4@vs',
-    marginTop: '8@vs',
-  },
-  statusText: {
-    color: '#FFF',
+  summaryAmount: {
+    color: '#CA251B',
     fontWeight: '700',
-    fontSize: '13@ms',
-  },
-  timeText: {
-    color: '#17213A',
-    fontSize: '12@ms',
-    marginTop: '10@vs',
+    fontSize: '20@ms',
+    marginTop: '6@vs',
   },
 
   sectionTitle: {
     color: '#17213A',
     fontWeight: '800',
     fontSize: '16@ms',
-    alignSelf: 'flex-start',
-    marginTop: '20@vs',
-    marginBottom: '6@vs',
+    marginBottom: '10@vs',
   },
 
-  infoBox: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: '12@ms',
+  itemCard: {
+    backgroundColor: '#FFF',
+    borderRadius: '14@ms',
     borderWidth: 1,
     borderColor: '#E6E8EB',
-    padding: '14@s',
+    marginBottom: '10@vs',
     elevation: 2,
+    overflow: 'hidden',
   },
-
-  row: {
+  itemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: '4@vs',
+    alignItems: 'center',
+    paddingVertical: '12@vs',
+    paddingHorizontal: '12@s',
+  },
+  itemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  itemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  itemTitle: { color: '#17213A', fontWeight: '700', fontSize: '13@ms' },
+  itemTime: { color: '#17213A', fontWeight: '400', fontSize: '12@ms' },
+  itemCode: { color: '#9CA3AF', fontSize: '11@ms' },
+  itemAmount: { color: '#CA251B', fontWeight: '800', fontSize: '15@ms' },
+  arrowIcon: {
+    backgroundColor: '#CA251B',
+    borderRadius: moderateScale(7),
+    padding: 3,
+  },
+
+  expandedBox: {
+    paddingHorizontal: '14@s',
+    paddingVertical: '8@vs',
+    borderTopColor: '#CA251B',
+    borderTopWidth: 1,
+    backgroundColor: '#FAFAFA',
+  },
+  redLine: {
+    height: 1,
+    backgroundColor: '#CA251B',
+    marginVertical: '8@vs',
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: '3@vs',
   },
   label: {
     color: '#CA251B',
@@ -171,7 +260,18 @@ const styles = ScaledSheet.create({
     fontWeight: '800',
     fontSize: '14@ms',
   },
-
+  subSectionTitle: {
+    color: '#17213A',
+    fontWeight: '700',
+    fontSize: '14@ms',
+    marginTop: '10@vs',
+    marginBottom: '4@vs',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: '2@vs',
+  },
   infoLabel: {
     color: '#CA251B',
     fontWeight: '600',
@@ -181,7 +281,6 @@ const styles = ScaledSheet.create({
     color: '#17213A',
     fontWeight: '700',
     fontSize: '13@ms',
-    flexShrink: 1,
     textAlign: 'right',
   },
 
@@ -190,7 +289,8 @@ const styles = ScaledSheet.create({
     borderRadius: '10@ms',
     paddingVertical: '12@vs',
     paddingHorizontal: '34@s',
-    marginTop: '22@vs',
+    marginTop: '20@vs',
+    alignSelf: 'center',
   },
   closeText: {
     color: '#FFFFFF',
