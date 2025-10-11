@@ -7,7 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { Calendar as CalendarIcon, ChevronRight, HandPlatter } from 'lucide-react-native';
+import { Calendar as CalendarIcon, ChevronRight, ClockFading } from 'lucide-react-native';
 import { ScaledSheet, s, vs, moderateScale } from 'react-native-size-matters';
 import HeaderWithBackButton from '../../../components/HeaderWithBackButton';
 import EarningDetailsOverlay from '../../../components/EarningDetailsOverlay';
@@ -294,7 +294,7 @@ export default function EarningsScreen() {
               onPress={() => openDetails(item)}
             >
               <View style={styles.itemLeft}>
-                <HandPlatter size={moderateScale(34)} color="#CA251B" />
+                <ClockFading size={moderateScale(34)} color="#CA251B" />
                 <View>
                   <Text allowFontScaling={false} style={styles.itemTitle}>
                     {`Shift #${item.id}`}

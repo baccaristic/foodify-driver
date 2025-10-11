@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { ScaledSheet, ms, vs } from 'react-native-size-matters';
 import { Image } from 'expo-image';
-import { ChevronDown, ChevronUp, ClockFading } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, HandPlatter } from 'lucide-react-native';
 import type {
   DriverShiftDetail,
   DriverShiftEarning,
@@ -189,13 +189,14 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
                   >
                     <View style={styles.orderHeaderContent}>
                       <View style={styles.orderHeaderLeft}>
-                        <ClockFading
+                        <HandPlatter
                           color="#CA251B"
-                          size={ms(16)}
+                          size={ms(34)}
                           strokeWidth={2}
                         />
                         <Text allowFontScaling={false} style={styles.orderTitle}>
-                          {`Order #${order.orderId}`}
+                          {`${order.orderItemsCount} items - ${order.restaurantName}`}
+                          {`${order.orderAcceptedAt} -> ${order.orderDeliveredAt}`}
                         </Text>
                       </View>
                       <Text allowFontScaling={false} style={styles.orderAmount}>
@@ -221,12 +222,6 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
                         <Text allowFontScaling={false} style={styles.orderLabel}>Delivery ID</Text>
                         <Text allowFontScaling={false} style={styles.orderValue}>
                           {order.deliveryId ?? '--'}
-                        </Text>
-                      </View>
-                      <View style={styles.orderRow}>
-                        <Text allowFontScaling={false} style={styles.orderLabel}>Restaurant</Text>
-                        <Text allowFontScaling={false} style={styles.orderValue}>
-                          {order.restaurantName || 'N/A'}
                         </Text>
                       </View>
                       <View style={styles.orderRow}>

@@ -34,6 +34,8 @@ export type DriverShiftOrder = {
   deliveryFee: number;
   restaurantName: string;
   orderItemsCount: number;
+  orderAcceptedAt: string,
+  orderDeliveredAt: string;
 };
 
 export type DriverShiftDetail = {
