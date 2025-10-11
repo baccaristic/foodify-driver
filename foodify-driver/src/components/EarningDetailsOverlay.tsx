@@ -202,6 +202,18 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
                   {expandedOrderIds.includes(order.orderId) ? (
                     <View style={styles.orderDetails}>
                       <View style={styles.orderRow}>
+                        <Text allowFontScaling={false} style={styles.orderLabel}>Order ID</Text>
+                        <Text allowFontScaling={false} style={styles.orderValue}>
+                          {order.orderId ?? '--'}
+                        </Text>
+                      </View>
+                      <View style={styles.orderRow}>
+                        <Text allowFontScaling={false} style={styles.orderLabel}>Delivery ID</Text>
+                        <Text allowFontScaling={false} style={styles.orderValue}>
+                          {order.deliveryId ?? '--'}
+                        </Text>
+                      </View>
+                      <View style={styles.orderRow}>
                         <Text allowFontScaling={false} style={styles.orderLabel}>Restaurant</Text>
                         <Text allowFontScaling={false} style={styles.orderValue}>
                           {order.restaurantName || 'N/A'}
@@ -393,7 +405,7 @@ const styles = ScaledSheet.create({
     gap: 8,
   },
   orderLabel: {
-    color: '#6B7280',
+    color: '#CA251B',
     fontWeight: '600',
     fontSize: '12@ms',
     flexShrink: 0,
@@ -409,7 +421,7 @@ const styles = ScaledSheet.create({
     justifyContent: 'space-between',
   },
   orderTotalsLabel: {
-    color: '#6B7280',
+    color: '#CA251B',
     fontWeight: '600',
     fontSize: '12@ms',
   },
