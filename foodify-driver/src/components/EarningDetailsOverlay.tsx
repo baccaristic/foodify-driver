@@ -1,21 +1,53 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { ScaledSheet, s, vs, moderateScale } from 'react-native-size-matters';
+import { ScaledSheet, vs } from 'react-native-size-matters';
 import { Image } from 'expo-image';
-import { HandPlatter, ChevronDown, ChevronUp } from 'lucide-react-native';
+import type { DriverShiftEarning } from '../types/driver';
 
-export default function ShiftDetailsOverlay({ onClose }: any) {
-  const [expandedItem, setExpandedItem] = useState<string | null>(null);
+type ShiftDetailsOverlayProps = {
+  onClose: () => void;
+  shift: DriverShiftEarning | null;
+};
 
-  const data = [
-    { id: '1', title: '2 Items - Di Napoli', time: '13:00 - 13:30', code: '1234567898765432', amount: '19,300 DT' },
-    { id: '2', title: '2 Items - Di Napoli', time: '13:00 - 13:30', code: '1234567898765432', amount: '19,300 DT' },
-    { id: '3', title: '2 Items - Di Napoli', time: '13:00 - 13:30', code: '1234567898765432', amount: '19,300 DT' },
-  ];
+const formatCurrency = (value?: number | null) => {
+  if (value === null || value === undefined) {
+    return '--';
+  }
 
-  const toggleExpand = (id: string) => {
-    setExpandedItem(expandedItem === id ? null : id);
-  };
+  return `${value.toLocaleString('fr-FR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} dt`;
+};
+
+const formatShiftWindow = (startTime: string, endTime: string | null) => {
+  if (!startTime && !endTime) {
+    return 'No time information available';
+  }
+
+  if (startTime && endTime) {
+    return `From ${startTime} to ${endTime}`;
+  }
+
+  if (startTime) {
+    return `Started at ${startTime}`;
+  }
+
+  return `Ended at ${endTime}`;
+};
+
+const getShiftStatus = (endTime: string | null) => {
+  if (!endTime) {
+    return 'In progress';
+  }
+
+  return 'Completed';
+};
+
+export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOverlayProps) {
+  if (!shift) {
+    return null;
+  }
 
   return (
     <View style={styles.overlay}>
@@ -24,99 +56,36 @@ export default function ShiftDetailsOverlay({ onClose }: any) {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: vs(30) }}
         >
-          {/* Icon */}
           <Image
             source={require('../../assets/moto.png')}
             style={styles.icon}
             contentFit="contain"
           />
 
-          {/* Shift Summary */}
           <View style={styles.summaryBox}>
-            <Text allowFontScaling={false} style={styles.summaryDate}>23 November 2025</Text>
-            <Text allowFontScaling={false} style={styles.summaryTime}>From : 13:00  to 16:30</Text>
-            <Text allowFontScaling={false} style={styles.summaryAmount}>123.45 dt</Text>
+            <Text allowFontScaling={false} style={styles.summaryDate}>{`Shift #${shift.id}`}</Text>
+            <Text allowFontScaling={false} style={styles.summaryTime}>
+              {formatShiftWindow(shift.startTime, shift.endTime)}
+            </Text>
+            <Text allowFontScaling={false} style={styles.summaryAmount}>
+              {formatCurrency(shift.total)}
+            </Text>
+            <View style={styles.statusPill}>
+              <Text allowFontScaling={false} style={styles.statusText}>
+                {getShiftStatus(shift.endTime)}
+              </Text>
+            </View>
           </View>
 
-          {/* Section Title */}
           <Text allowFontScaling={false} style={styles.sectionTitle}>Shift Breakdown</Text>
 
-          {/* Orders List */}
-          {data.map((item) => (
-            <View key={item.id} style={styles.itemCard}>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => toggleExpand(item.id)}
-                style={styles.itemHeader}
-              >
-                <View style={styles.itemLeft}>
-                  <HandPlatter size={moderateScale(32)} color="#CA251B" />
-                  <View>
-                    <Text allowFontScaling={false} style={styles.itemTitle}>{item.title}</Text>
-                    <Text allowFontScaling={false} style={styles.itemTime}>{item.time}</Text>
-                    <Text allowFontScaling={false} style={styles.itemCode}>{item.code}</Text>
-                  </View>
-                </View>
+          <View style={styles.emptyBox}>
+            <Text allowFontScaling={false} style={styles.emptyTitle}>No additional details</Text>
+            <Text allowFontScaling={false} style={styles.emptyMessage}>
+              Shift breakdown data is not available for this shift.
+            </Text>
+          </View>
 
-                <View style={styles.itemRight}>
-                  <Text allowFontScaling={false} style={styles.itemAmount}>{item.amount}</Text>
-                  {expandedItem === item.id ? (
-                    <ChevronUp
-                      color="white"
-                      size={moderateScale(24)}
-                      style={styles.arrowIcon}
-                    />
-                  ) : (
-                    <ChevronDown
-                      color="white"
-                      size={moderateScale(24)}
-                      style={styles.arrowIcon}
-                    />
-                  )}
-                </View>
-              </TouchableOpacity>
-
-              {/* Expanded Details */}
-              {expandedItem === item.id && (
-                <View style={styles.expandedBox}>
-                  <View style={styles.redLine} />
-                  <View style={styles.breakdownRow}>
-                    <Text allowFontScaling={false} style={styles.label}>Base fee</Text>
-                    <Text allowFontScaling={false} style={styles.value}>xx.00 dt</Text>
-                  </View>
-                  <View style={styles.breakdownRow}>
-                    <Text allowFontScaling={false} style={styles.label}>Tips</Text>
-                    <Text allowFontScaling={false} style={styles.value}>xx.00 dt</Text>
-                  </View>
-                  <View style={styles.breakdownRow}>
-                    <Text allowFontScaling={false} style={styles.totalLabel}>Total Earnings</Text>
-                    <Text allowFontScaling={false} style={styles.totalValue}>xx.00 dt</Text>
-                  </View>
-
-                  <Text allowFontScaling={false} style={styles.subSectionTitle}>Location & Order Info</Text>
-
-                  <View style={styles.infoRow}>
-                    <Text allowFontScaling={false} style={styles.infoLabel}>Pickup Location</Text>
-                    <Text allowFontScaling={false} style={styles.infoValue}>Di Napoli Menzah 5</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text allowFontScaling={false} style={styles.infoLabel}>Delivery Location</Text>
-                    <Text allowFontScaling={false} style={styles.infoValue}>Résidence Elyes, Soukra</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text allowFontScaling={false} style={styles.infoLabel}>Order Code</Text>
-                    <Text allowFontScaling={false} style={styles.infoValue}>1234567898765432</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text allowFontScaling={false} style={styles.infoLabel}>Delivery ID</Text>
-                    <Text allowFontScaling={false} style={styles.infoValue}>876543234567</Text>
-                  </View>
-                </View>
-              )}
-            </View>
-          ))}
-
-          {/* Close Button */}
           <TouchableOpacity onPress={onClose} activeOpacity={0.85} style={styles.closeBtn}>
             <Text allowFontScaling={false} style={styles.closeText}>Close</Text>
           </TouchableOpacity>
@@ -172,6 +141,7 @@ const styles = ScaledSheet.create({
     fontWeight: '600',
     fontSize: '13@ms',
     marginTop: '2@vs',
+    textAlign: 'center',
   },
   summaryAmount: {
     color: '#CA251B',
@@ -179,118 +149,50 @@ const styles = ScaledSheet.create({
     fontSize: '20@ms',
     marginTop: '6@vs',
   },
-
   sectionTitle: {
     color: '#17213A',
     fontWeight: '800',
     fontSize: '16@ms',
     marginBottom: '10@vs',
   },
-
-  itemCard: {
+  statusPill: {
+    marginTop: '8@vs',
+    paddingVertical: '4@vs',
+    paddingHorizontal: '12@s',
+    backgroundColor: '#FEE2E2',
+    borderRadius: '12@ms',
+  },
+  statusText: {
+    color: '#CA251B',
+    fontWeight: '700',
+    fontSize: '12@ms',
+  },
+  emptyBox: {
     backgroundColor: '#FFF',
     borderRadius: '14@ms',
     borderWidth: 1,
     borderColor: '#E6E8EB',
-    marginBottom: '10@vs',
-    elevation: 2,
-    overflow: 'hidden',
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: '12@vs',
-    paddingHorizontal: '12@s',
-  },
-  itemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  itemRight: {
-    flexDirection: 'row',
+    padding: '16@s',
     alignItems: 'center',
     gap: 6,
+    elevation: 2,
   },
-  itemTitle: { color: '#17213A', fontWeight: '700', fontSize: '13@ms' },
-  itemTime: { color: '#17213A', fontWeight: '400', fontSize: '12@ms' },
-  itemCode: { color: '#9CA3AF', fontSize: '11@ms' },
-  itemAmount: { color: '#CA251B', fontWeight: '800', fontSize: '15@ms' },
-  arrowIcon: {
-    backgroundColor: '#CA251B',
-    borderRadius: moderateScale(7),
-    padding: 3,
-  },
-
-  expandedBox: {
-    paddingHorizontal: '14@s',
-    paddingVertical: '8@vs',
-    borderTopColor: '#CA251B',
-    borderTopWidth: 1,
-    backgroundColor: '#FAFAFA',
-  },
-  redLine: {
-    height: 1,
-    backgroundColor: '#CA251B',
-    marginVertical: '8@vs',
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: '3@vs',
-  },
-  label: {
-    color: '#CA251B',
-    fontWeight: '600',
-    fontSize: '13@ms',
-  },
-  value: {
+  emptyTitle: {
     color: '#17213A',
     fontWeight: '700',
     fontSize: '13@ms',
   },
-  totalLabel: {
-    color: '#CA251B',
-    fontWeight: '700',
-    fontSize: '14@ms',
+  emptyMessage: {
+    color: '#6B7280',
+    fontSize: '12@ms',
+    textAlign: 'center',
   },
-  totalValue: {
-    color: '#17213A',
-    fontWeight: '800',
-    fontSize: '14@ms',
-  },
-  subSectionTitle: {
-    color: '#17213A',
-    fontWeight: '700',
-    fontSize: '14@ms',
-    marginTop: '10@vs',
-    marginBottom: '4@vs',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: '2@vs',
-  },
-  infoLabel: {
-    color: '#CA251B',
-    fontWeight: '600',
-    fontSize: '13@ms',
-  },
-  infoValue: {
-    color: '#17213A',
-    fontWeight: '700',
-    fontSize: '13@ms',
-    textAlign: 'right',
-  },
-
   closeBtn: {
+    marginTop: '18@vs',
     backgroundColor: '#CA251B',
-    borderRadius: '10@ms',
+    borderRadius: '12@ms',
     paddingVertical: '12@vs',
-    paddingHorizontal: '34@s',
-    marginTop: '20@vs',
-    alignSelf: 'center',
+    alignItems: 'center',
   },
   closeText: {
     color: '#FFFFFF',
