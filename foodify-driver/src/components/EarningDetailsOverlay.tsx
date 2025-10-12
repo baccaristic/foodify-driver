@@ -6,14 +6,16 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { ScaledSheet, ms, vs } from 'react-native-size-matters';
+import { ScaledSheet, ms, vs, s } from 'react-native-size-matters';
 import { Image } from 'expo-image';
-import { ChevronDown, ChevronUp, HandPlatter } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, CircleX, HandPlatter, X } from 'lucide-react-native';
 import type {
   DriverShiftDetail,
   DriverShiftEarning,
 } from '../types/driver';
 import { getDriverShiftDetails } from '../services/driverService';
+import { moderateScale } from 'react-native-size-matters';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
 type ShiftDetailsOverlayProps = {
   onClose: () => void;
@@ -64,6 +66,7 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedOrderIds, setExpandedOrderIds] = useState<number[]>([]);
+  const insets = useSafeAreaInsets();
 
   const fetchShiftDetails = useCallback(async () => {
     if (!shift) {
@@ -112,172 +115,216 @@ export default function ShiftDetailsOverlay({ onClose, shift }: ShiftDetailsOver
     return shiftDetails.date;
   }, [shiftDetails?.date]);
 
-  return (
-    <View style={styles.overlay}>
-      <View style={styles.card}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: vs(30) }}
-        >
-          <Image
-            source={require('../../assets/moto.png')}
-            style={styles.icon}
-            contentFit="contain"
-          />
 
-          <View style={styles.summaryBox}>
-            <Text allowFontScaling={false} style={styles.summaryDate}>{`Shift #${shift.id}`}</Text>
-            {shiftDate && (
-              <Text allowFontScaling={false} style={styles.summaryDateText}>
-                {shiftDate}
-              </Text>
-            )}
-            <Text allowFontScaling={false} style={styles.summaryTime}>
-              {formatShiftWindow(shift.startTime, shift.endTime)}
+
+  return (
+    <SafeAreaView
+      style={[
+        styles.safeContainer,
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.card}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              onPress={onClose}
+              activeOpacity={0.8}
+              style={styles.closeButton}
+            >
+              <X  color="#CA251B" size={s(24)} />
+            </TouchableOpacity>
+
+            <Text allowFontScaling={false} style={styles.header}>
+              {`Shift #${shift.id}`}
             </Text>
-            <Text allowFontScaling={false} style={styles.summaryAmount}>
-              {formatCurrency(shift.total)}
-            </Text>
-            <View style={styles.statusPill}>
-              <Text allowFontScaling={false} style={styles.statusText}>
-                {getShiftStatus(shift.endTime)}
-              </Text>
-            </View>
+
+            <View style={{ width: s(40) }} />
           </View>
 
-          <Text allowFontScaling={false} style={styles.sectionTitle}>Shift Breakdown</Text>
 
-          {isLoading && (
-            <View style={styles.emptyBox}>
-              <ActivityIndicator color="#CA251B" size="small" />
-              <Text allowFontScaling={false} style={styles.emptyMessage}>
-                Loading shift details...
-              </Text>
-            </View>
-          )}
 
-          {!isLoading && error && (
-            <View style={styles.emptyBox}>
-              <Text allowFontScaling={false} style={styles.emptyTitle}>{error}</Text>
-              <TouchableOpacity
-                onPress={fetchShiftDetails}
-                activeOpacity={0.85}
-                style={styles.retryBtn}
-              >
-                <Text allowFontScaling={false} style={styles.retryText}>Try again</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.container}
+          >
+            <Image
+              source={require('../../assets/moto.png')}
+              style={styles.icon}
+              contentFit="contain"
+            />
 
-          {!isLoading && !error && shiftDetails?.orders.length === 0 && (
-            <View style={styles.emptyBox}>
-              <Text allowFontScaling={false} style={styles.emptyTitle}>No orders recorded</Text>
-              <Text allowFontScaling={false} style={styles.emptyMessage}>
-                This shift does not have any completed orders yet.
-              </Text>
-            </View>
-          )}
-
-          {!isLoading && !error && shiftDetails?.orders.length ? (
-            <View style={styles.orderList}>
-              {shiftDetails.orders.map((order) => (
-                <View key={order.orderId} style={styles.orderCard}>
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    style={styles.orderHeader}
-                    onPress={() => toggleOrderExpansion(order.orderId)}
-                  >
-                    <View style={styles.orderHeaderContent}>
-                      <View style={styles.orderHeaderLeft}>
-                        <HandPlatter
-                          color="#CA251B"
-                          size={ms(34)}
-                          strokeWidth={2}
-                        />
-                        <Text allowFontScaling={false} style={styles.orderTitle}>
-                          {`${order.orderItemsCount} items - ${order.restaurantName}`}
-                          {`${order.orderAcceptedAt} -> ${order.orderDeliveredAt}`}
-                        </Text>
-                      </View>
-                      <Text allowFontScaling={false} style={styles.orderAmount}>
-                        {formatCurrency(order.driverEarningFromOrder)}
-                      </Text>
-                    </View>
-                    {expandedOrderIds.includes(order.orderId) ? (
-                      <ChevronUp color="#CA251B" size={ms(16)} strokeWidth={2} />
-                    ) : (
-                      <ChevronDown color="#CA251B" size={ms(16)} strokeWidth={2} />
-                    )}
-                  </TouchableOpacity>
-
-                  {expandedOrderIds.includes(order.orderId) ? (
-                    <View style={styles.orderDetails}>
-                      <View style={styles.orderRow}>
-                        <Text allowFontScaling={false} style={styles.orderLabel}>Order ID</Text>
-                        <Text allowFontScaling={false} style={styles.orderValue}>
-                          {order.orderId ?? '--'}
-                        </Text>
-                      </View>
-                      <View style={styles.orderRow}>
-                        <Text allowFontScaling={false} style={styles.orderLabel}>Delivery ID</Text>
-                        <Text allowFontScaling={false} style={styles.orderValue}>
-                          {order.deliveryId ?? '--'}
-                        </Text>
-                      </View>
-                      <View style={styles.orderRow}>
-                        <Text allowFontScaling={false} style={styles.orderLabel}>Pickup</Text>
-                        <Text allowFontScaling={false} style={styles.orderValue}>
-                          {order.pickUpLocation || 'N/A'}
-                        </Text>
-                      </View>
-                      <View style={styles.orderRow}>
-                        <Text allowFontScaling={false} style={styles.orderLabel}>Drop-off</Text>
-                        <Text allowFontScaling={false} style={styles.orderValue}>
-                          {order.deliveryLocation || 'N/A'}
-                        </Text>
-                      </View>
-                      <View style={styles.orderTotalsRow}>
-                        <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Order Total</Text>
-                        <Text allowFontScaling={false} style={styles.orderTotalsValue}>
-                          {formatCurrency(order.orderTotal)}
-                        </Text>
-                      </View>
-                      <View style={styles.orderTotalsRow}>
-                        <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Delivery Fee</Text>
-                        <Text allowFontScaling={false} style={styles.orderTotalsValue}>
-                          {formatCurrency(order.deliveryFee)}
-                        </Text>
-                      </View>
-                      <View style={styles.orderTotalsRow}>
-                        <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Items</Text>
-                        <Text allowFontScaling={false} style={styles.orderTotalsValue}>
-                          {order.orderItemsCount ?? '--'}
-                        </Text>
-                      </View>
-                    </View>
-                  ) : null}
+            <View style={styles.summaryBox}>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryLeft}>
+                  {shiftDate && (
+                    <Text allowFontScaling={false} style={styles.summaryDateText}>
+                      {shiftDate}
+                    </Text>
+                  )}
+                  <Text allowFontScaling={false} style={styles.summaryTime}>
+                    {formatShiftWindow(shift.startTime, shift.endTime)}
+                  </Text>
                 </View>
-              ))}
-            </View>
-          ) : null}
 
-          <TouchableOpacity onPress={onClose} activeOpacity={0.85} style={styles.closeBtn}>
-            <Text allowFontScaling={false} style={styles.closeText}>Close</Text>
-          </TouchableOpacity>
-        </ScrollView>
+                <View style={styles.summaryRight}>
+                  <Text allowFontScaling={false} style={styles.summaryAmount}>
+                    {formatCurrency(shift.total)}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.statusPill}>
+                <Text allowFontScaling={false} style={styles.statusText}>
+                  {getShiftStatus(shift.endTime)}
+                </Text>
+              </View>
+            </View>
+
+            <Text allowFontScaling={false} style={styles.sectionTitle}>Shift Breakdown</Text>
+
+            {isLoading && (
+              <View style={styles.emptyBox}>
+                <ActivityIndicator color="#CA251B" size="small" />
+                <Text allowFontScaling={false} style={styles.emptyMessage}>
+                  Loading shift details...
+                </Text>
+              </View>
+            )}
+
+            {!isLoading && error && (
+              <View style={styles.emptyBox}>
+                <Text allowFontScaling={false} style={styles.emptyTitle}>{error}</Text>
+                <TouchableOpacity
+                  onPress={fetchShiftDetails}
+                  activeOpacity={0.85}
+                  style={styles.retryBtn}
+                >
+                  <Text allowFontScaling={false} style={styles.retryText}>Try again</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {!isLoading && !error && shiftDetails?.orders.length === 0 && (
+              <View style={styles.emptyBox}>
+                <Text allowFontScaling={false} style={styles.emptyTitle}>No orders recorded</Text>
+                <Text allowFontScaling={false} style={styles.emptyMessage}>
+                  This shift does not have any completed orders yet.
+                </Text>
+              </View>
+            )}
+
+            {!isLoading && !error && shiftDetails?.orders.length ? (
+              <View style={styles.orderList}>
+                {shiftDetails.orders.map((order) => (
+                  <View key={order.orderId} style={styles.orderCard}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={styles.orderHeader}
+                      onPress={() => toggleOrderExpansion(order.orderId)}
+                    >
+                      <View style={styles.orderHeaderContent}>
+                        <View style={styles.orderHeaderLeft}>
+                          <HandPlatter
+                            color="#CA251B"
+                            size={ms(34)}
+                            strokeWidth={2}
+                          />
+                          <Text allowFontScaling={false} style={styles.orderTitle}>
+                            {`${order.orderItemsCount} items - ${order.restaurantName} : `}
+                            {`${order.orderAcceptedAt} -> ${order.orderDeliveredAt}`}
+                          </Text>
+                        </View>
+                        <Text allowFontScaling={false} style={styles.orderAmount}>
+                          {formatCurrency(order.driverEarningFromOrder)}
+                        </Text>
+                      </View>
+                      {expandedOrderIds.includes(order.orderId) ? (
+                        <ChevronUp style={{ backgroundColor: '#CA251B', borderRadius: moderateScale(4) }} color="white" size={s(24)} strokeWidth={2} />
+                      ) : (
+                        <ChevronDown style={{ backgroundColor: '#CA251B', borderRadius: moderateScale(4) }} color="white" size={s(24)} strokeWidth={2} />
+                      )}
+                    </TouchableOpacity>
+
+                    {expandedOrderIds.includes(order.orderId) ? (
+                      <View style={styles.orderDetails}>
+                        <View style={styles.orderRow}>
+                          <Text allowFontScaling={false} style={styles.orderLabel}>Order ID</Text>
+                          <Text allowFontScaling={false} style={styles.orderValue}>
+                            {order.orderId ?? '--'}
+                          </Text>
+                        </View>
+                        <View style={styles.orderRow}>
+                          <Text allowFontScaling={false} style={styles.orderLabel}>Delivery ID</Text>
+                          <Text allowFontScaling={false} style={styles.orderValue}>
+                            {order.deliveryId ?? '--'}
+                          </Text>
+                        </View>
+                        <View style={styles.orderRow}>
+                          <Text allowFontScaling={false} style={styles.orderLabel}>Pickup</Text>
+                          <Text allowFontScaling={false} style={styles.orderValue}>
+                            {order.pickUpLocation || 'N/A'}
+                          </Text>
+                        </View>
+                        <View style={styles.orderRow}>
+                          <Text allowFontScaling={false} style={styles.orderLabel} >Drop-off</Text>
+                          <Text allowFontScaling={false} style={styles.orderValue}>
+                            {order.deliveryLocation || 'N/A'}
+                          </Text>
+                        </View>
+                        <View style={styles.orderTotalsRow}>
+                          <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Order Total</Text>
+                          <Text allowFontScaling={false} style={styles.orderTotalsValue}>
+                            {formatCurrency(order.orderTotal)}
+                          </Text>
+                        </View>
+                        <View style={styles.orderTotalsRow}>
+                          <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Delivery Fee</Text>
+                          <Text allowFontScaling={false} style={styles.orderTotalsValue}>
+                            {formatCurrency(order.deliveryFee)}
+                          </Text>
+                        </View>
+                        <View style={styles.orderTotalsRow}>
+                          <Text allowFontScaling={false} style={styles.orderTotalsLabel}>Items</Text>
+                          <Text allowFontScaling={false} style={styles.orderTotalsValue}>
+                            {order.orderItemsCount ?? '--'}
+                          </Text>
+                        </View>
+                      </View>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            <TouchableOpacity onPress={onClose} activeOpacity={0.85} style={styles.closeBtn}>
+              <Text allowFontScaling={false} style={styles.closeText}>Close</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
+  
 }
 
 const styles = ScaledSheet.create({
-  overlay: {
+  safeContainer: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+
+  overlay: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: '16@s',
+    paddingHorizontal: s(16),
   },
+
+
   card: {
     width: '100%',
     backgroundColor: '#FFFFFF',
@@ -288,7 +335,42 @@ const styles = ScaledSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 5,
+    alignSelf: 'center',
+    maxHeight: '94%',
+
   },
+
+  container: {
+    flexGrow: 1,
+    paddingBottom: vs(40),
+    borderTopColor: '#F9FAFB',
+    borderColor: '#F9FAFB',
+    borderTopWidth: 2,
+    borderBottomWidth: 0,
+  },
+  closeButton: {
+    width: '40@s',
+    height: '40@s',
+    borderRadius: '20@s',
+    borderWidth: 1,
+    borderColor: '#CA251B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: vs(10),
+  },
+  header: {
+    alignSelf: 'center',
+    marginBottom: vs(10),
+    fontSize: '18@ms',
+    fontWeight: '700',
+    color: '#17213A',
+  },
+
   icon: {
     width: '110@s',
     height: '110@s',
@@ -297,56 +379,73 @@ const styles = ScaledSheet.create({
   },
 
   summaryBox: {
-    backgroundColor: '#FFF',
-    borderRadius: '14@ms',
+    backgroundColor: '#FFFFFF',
+    borderRadius: '16@ms',
     borderWidth: 1,
     borderColor: '#E6E8EB',
-    padding: '14@s',
-    marginBottom: '18@vs',
-    alignItems: 'center',
+    paddingVertical: '14@vs',
+    paddingHorizontal: '14@s',
+    marginBottom: moderateScale(14),
     elevation: 2,
   },
-  summaryDate: {
-    color: '#CA251B',
-    fontWeight: '700',
-    fontSize: '15@ms',
+
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  summaryTime: {
-    color: '#17213A',
-    fontWeight: '600',
-    fontSize: '13@ms',
-    marginTop: '2@vs',
-    textAlign: 'center',
+
+  summaryLeft: {
+    flex: 1,
+    justifyContent: 'center',
   },
-  summaryAmount: {
-    color: '#CA251B',
-    fontWeight: '700',
-    fontSize: '20@ms',
-    marginTop: '6@vs',
+
+  summaryRight: {
+    alignItems: 'flex-end',
   },
+
   summaryDateText: {
-    color: '#6B7280',
-    fontSize: '12@ms',
-    marginTop: '4@vs',
-  },
-  sectionTitle: {
-    color: '#17213A',
+    color: '#CA251B',
     fontWeight: '800',
     fontSize: '16@ms',
-    marginBottom: '10@vs',
+    marginBottom: '4@vs',
   },
-  statusPill: {
-    marginTop: '8@vs',
-    paddingVertical: '4@vs',
-    paddingHorizontal: '12@s',
-    backgroundColor: '#FEE2E2',
-    borderRadius: '12@ms',
-  },
-  statusText: {
-    color: '#CA251B',
+
+  summaryTime: {
+    color: '#17213A',
     fontWeight: '700',
-    fontSize: '12@ms',
+    fontSize: '16@ms',
   },
+
+  summaryAmount: {
+    color: '#10B981',
+    fontWeight: '800',
+    fontSize: '18@ms',
+  },
+
+  statusPill: {
+    marginTop: '10@vs',
+    alignSelf: 'center',
+    borderRadius: moderateScale(10),
+    paddingVertical: '5@vs',
+    paddingHorizontal: '16@s',
+    backgroundColor: '#CA251B',
+  },
+
+  statusText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: '14@ms',
+    textAlign: 'center',
+  },
+
+  sectionTitle: {
+    color: '#17213A',
+    fontWeight: '700',
+    fontSize: '18@ms',
+    marginBottom: moderateScale(14),
+  },
+
   emptyBox: {
     backgroundColor: '#FFF',
     borderRadius: '14@ms',
@@ -361,67 +460,81 @@ const styles = ScaledSheet.create({
     gap: 12,
   },
   orderCard: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFFFFF',
     borderRadius: '14@ms',
     borderWidth: 1,
     borderColor: '#E6E8EB',
-    paddingVertical: '6@vs',
+    paddingVertical: '10@vs',
     paddingHorizontal: '14@s',
     elevation: 2,
   },
+
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: '10@vs',
   },
+
+  orderHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+
+  orderTitle: {
+    color: '#17213A',
+    fontWeight: '700',
+    fontSize: '14@ms',
+    marginLeft: '8@s',
+    flexShrink: 1,
+    maxWidth: moderateScale(150),
+  },
+
+  orderAmount: {
+    color: '#CA251B',
+    fontWeight: '800',
+    fontSize: '15@ms',
+  },
+
+  orderDetails: {
+    marginTop: '8@vs',
+    borderTopWidth: 1,
+    borderTopColor: '#CA251B',
+    paddingTop: '8@vs',
+    gap: 6,
+  },
+
+  orderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: '2@vs',
+
+  },
+
+  orderLabel: {
+    color: '#CA251B',
+    fontWeight: '600',
+    fontSize: '12@ms',
+  },
+
+  orderValue: {
+    color: '#17213A',
+    fontWeight: '600',
+    fontSize: '12@ms',
+    alignSelf: 'flex-end',
+    maxWidth: moderateScale(160),
+    textAlign: 'right',
+  },
+
   orderHeaderContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     flex: 1,
     marginRight: '10@s',
+    gap: 10,
   },
-  orderHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  orderTitle: {
-    color: '#17213A',
-    fontWeight: '700',
-    fontSize: '14@ms',
-    marginLeft: '6@s',
-  },
-  orderAmount: {
-    color: '#10B981',
-    fontWeight: '700',
-    fontSize: '14@ms',
-  },
-  orderDetails: {
-    paddingBottom: '12@vs',
-    paddingTop: '4@vs',
-    borderTopWidth: 1,
-    borderTopColor: '#E6E8EB',
-    gap: 8,
-  },
-  orderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  orderLabel: {
-    color: '#CA251B',
-    fontWeight: '600',
-    fontSize: '12@ms',
-    flexShrink: 0,
-  },
-  orderValue: {
-    color: '#17213A',
-    fontSize: '12@ms',
-    flex: 1,
-    textAlign: 'right',
-  },
+
   orderTotalsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

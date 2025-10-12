@@ -10,11 +10,14 @@ import { ScaledSheet, s, vs } from 'react-native-size-matters';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react-native';
 import HeaderWithBackButton from '../../../components/HeaderWithBackButton';
 import { moderateScale } from 'react-native-size-matters';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 export default function DeleteAccountScreen() {
     const [step, setStep] = useState<'confirm' | 'deleting' | 'done'>('confirm');
     const [checked, setChecked] = useState(false);
+    const insets = useSafeAreaInsets();
+
 
     const handleDelete = () => {
         if (!checked) return;
@@ -59,11 +62,9 @@ export default function DeleteAccountScreen() {
 
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-            <View style={styles.header}>
-                <HeaderWithBackButton title="Delete account & Data" titleMarginLeft={s(40)} />
-            </View>
-
+        <View style={[styles.screen, {
+            paddingTop: insets.top, paddingBottom: insets.bottom
+        },]}>                <HeaderWithBackButton title="Delete account & Data" titleMarginLeft={s(40)} />
             {step === 'confirm' ? (
                 <ScrollView
                     contentContainerStyle={[styles.container, { backgroundColor: '#FFFFFF' }]}
@@ -123,14 +124,15 @@ export default function DeleteAccountScreen() {
 }
 
 const styles = ScaledSheet.create({
-    header: {
-        paddingTop: moderateScale(15),
+    screen: {
+        flex: 1,
+        backgroundColor: '#FFFFFF',
     },
     afterHeaderBox: {
         flex: 1,
         backgroundColor: '#FFFFFF',
         alignItems: 'center',
-        justifyContent: 'flex-start', 
+        justifyContent: 'flex-start',
         paddingBottom: vs(260),
         borderTopColor: '#F9FAFB',
         borderColor: '#F9FAFB',
@@ -170,7 +172,7 @@ const styles = ScaledSheet.create({
         fontWeight: '700',
         color: '#17213A',
         marginTop: '20@vs',
-        marginBottom:moderateScale(10),
+        marginBottom: moderateScale(10),
     },
     checkboxRow: {
         flexDirection: 'row',

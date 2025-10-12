@@ -22,6 +22,7 @@ import type {
   DriverShiftEarning,
   DriverShiftEarningsResponse,
 } from '../../../types/driver';
+import { verticalScale } from 'react-native-size-matters';
 
 export default function EarningsScreen() {
   const insets = useSafeAreaInsets();
@@ -223,9 +224,11 @@ export default function EarningsScreen() {
 
   return (
     <>
-      <View style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
-        <View style={styles.header}>
-          <HeaderWithBackButton title="Earnings" titleMarginLeft={s(50)} />
+      <View style={[styles.screen, {
+        paddingTop: insets.top, paddingBottom: insets.bottom
+      },]}>
+        <View >
+          <HeaderWithBackButton title="Earnings" titleMarginLeft={s(80)} />
         </View>
 
         <ScrollView
@@ -385,11 +388,12 @@ export default function EarningsScreen() {
 }
 
 const styles = ScaledSheet.create({
-  header: {
-    paddingTop: moderateScale(15),
+  screen: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
   },
-
   container: {
+    flexGrow: 1,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: '16@s',
     borderTopColor: '#F9FAFB',
@@ -460,12 +464,12 @@ const styles = ScaledSheet.create({
     elevation: 2,
   },
   summaryLabel: {
-    color: '#17213A',
+    color: '#CA251B',
     fontWeight: '600',
     fontSize: '14@ms',
   },
   summaryValue: {
-    color: '#17213A',
+    color: '#10B981',
     fontWeight: '700',
     fontSize: '18@ms',
   },
@@ -558,11 +562,12 @@ const styles = ScaledSheet.create({
   itemTime: {
     color: '#17213A',
     fontWeight: '400',
-    fontSize: '12@ms',
+    fontSize: '13@ms',
+    marginTop: verticalScale(3),
   },
   itemCode: {
-    color: '#6B7280',
-    fontSize: '11@ms',
+    color: '#CA251B',
+    fontSize: '12@ms',
   },
   itemAmount: {
     color: '#CA251B',
