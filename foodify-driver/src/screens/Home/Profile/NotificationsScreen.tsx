@@ -12,6 +12,7 @@ import {
 import { ScaledSheet, s, vs } from 'react-native-size-matters';
 import HeaderWithBackButton from '../../../components/HeaderWithBackButton';
 import { moderateScale } from 'react-native-size-matters';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 export default function NotificationsScreen() {
@@ -19,6 +20,8 @@ export default function NotificationsScreen() {
     const [orderStatus, setOrderStatus] = useState(false);
     const [offersPush, setOffersPush] = useState(false);
     const [offersEmail, setOffersEmail] = useState(false);
+    const insets = useSafeAreaInsets();
+
 
     const handleEnableAll = () => {
         setLoading(true);
@@ -33,10 +36,10 @@ export default function NotificationsScreen() {
 
 
     return (
-        <>
-            <View style={styles.header}>
-                <HeaderWithBackButton title="Notifications" titleMarginLeft={s(70)} />
-            </View>
+        <View style={[styles.screen, {
+            paddingTop: insets.top, paddingBottom: insets.bottom
+        },]}>
+            <HeaderWithBackButton title="Notifications" titleMarginLeft={s(70)} />
 
             <ScrollView style={styles.container}>
                 {loading && (
@@ -116,20 +119,21 @@ export default function NotificationsScreen() {
                     </View>
                 </View>
             </ScrollView>
-        </>
+        </View>
     );
 }
 
 const styles = ScaledSheet.create({
-    header: {
-        paddingTop: moderateScale(15),
+    screen: {
+        flex: 1,
+        backgroundColor: '#FFFFFF',
     },
     container: {
         flex: 1,
         backgroundColor: '#FFFFFF',
         paddingHorizontal: '16@s',
         borderTopColor: '#F9FAFB',
-        borderColor:'#F9FAFB',
+        borderColor: '#F9FAFB',
         borderTopWidth: 2,
         borderBottomWidth: 0,
     },

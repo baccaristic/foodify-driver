@@ -10,6 +10,7 @@ import HeaderWithBackButton from '../../../components/HeaderWithBackButton';
 import { useAuth } from '../../../contexts/AuthContext';
 import LetteredAvatar from '../../../components/ProfilSettings/LetteredAvatar';
 import { moderateScale } from 'react-native-size-matters';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 const palette = {
@@ -24,15 +25,17 @@ const ProfileSettingsScreen = () => {
   const displayPhone = user?.phone ?? '987654432';
 
   const [visibleOverlay, setVisibleOverlay] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
+
 
   const openOverlay = (type: string) => setVisibleOverlay(type);
   const closeOverlay = () => setVisibleOverlay(null);
 
   return (
-    <>
-      <View style={styles.header}>
-        <HeaderWithBackButton title="Profile Settings" titleMarginLeft={s(70)} />
-      </View>
+    <View style={[styles.screen, {
+      paddingTop: insets.top, paddingBottom: insets.bottom
+    },]}>
+      <HeaderWithBackButton title="Profile Settings" titleMarginLeft={s(70)} />
 
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.profileCard}>
@@ -122,13 +125,15 @@ const ProfileSettingsScreen = () => {
       <Modal visible={visibleOverlay === 'password'} animationType="slide" transparent>
         <ModifyPasswordOverlay onClose={closeOverlay} />
       </Modal>
-    </>
+    </View >
+
   );
 };
 
 const styles = ScaledSheet.create({
-  header: {
-    paddingTop: moderateScale(15),
+  screen: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   container: {
     flex: 1, backgroundColor: '#FFFFFF', borderTopColor: '#F9FAFB',

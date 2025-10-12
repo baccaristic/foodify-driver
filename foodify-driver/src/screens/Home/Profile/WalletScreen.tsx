@@ -16,6 +16,7 @@ import { Image } from 'expo-image';
 import { getDriverEarnings } from '../../../services/driverService';
 import type { DriverEarningsQuery, DriverEarningsResponse } from '../../../types/driver';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 const { width } = Dimensions.get('screen');
@@ -28,6 +29,8 @@ export const WalletScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+
 
   const formatCurrency = (value?: number | null) => {
     if (value === null || value === undefined) {
@@ -104,7 +107,7 @@ export const WalletScreen: React.FC = () => {
     return marked;
   };
 
-  const handleNavigate =() => {
+  const handleNavigate = () => {
     navigation.navigate('EarningsScreen' as never)
   }
 
@@ -216,11 +219,10 @@ export const WalletScreen: React.FC = () => {
 
 
   return (
-    <>
-
-      <View style={styles.header}>
-        <HeaderWithBackButton title="Wallet" titleMarginLeft={s(100)} />
-      </View>
+    <View style={[styles.screen, {
+      paddingTop: insets.top, paddingBottom: insets.bottom
+    },]}>
+      <HeaderWithBackButton title="Wallet" titleMarginLeft={s(100)} />
       <View style={styles.container}>
 
 
@@ -273,7 +275,7 @@ export const WalletScreen: React.FC = () => {
             <View style={styles.modalCard}>
               <Calendar
                 markingType="period"
-                markedDates={getMarkedDates()}  
+                markedDates={getMarkedDates()}
                 onDayPress={handleDateSelect}
                 theme={{
                   arrowColor: '#CA251B',
@@ -292,13 +294,15 @@ export const WalletScreen: React.FC = () => {
           </View>
         </Modal>
       </View>
-    </>
+    </View>
+
   );
 };
 
 const styles = StyleSheet.create({
-  header: {
-    paddingTop: moderateScale(15),
+  screen: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   container: {
     flex: 1, backgroundColor: '#fff', padding: moderateScale(16), borderTopColor: '#F9FAFB',
