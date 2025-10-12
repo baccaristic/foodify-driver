@@ -26,3 +26,6 @@ export type RefreshResponse = AuthTokens;
 export type SessionStatusResponse = {
   status: 'active';
 };
+export interface LogoutRequest {
+  refreshToken: string;
+}

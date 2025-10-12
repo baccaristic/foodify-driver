@@ -2,7 +2,7 @@ import axios from 'axios';
 
 import { apiClient } from './api';
 import { ENV } from '../constants/env';
-import type { LoginResponse, RefreshResponse, SessionStatusResponse } from '../types/auth';
+import type { LoginResponse, LogoutRequest, RefreshResponse, SessionStatusResponse } from '../types/auth';
 
 const sessionClient = axios.create({
   baseURL: ENV.baseApiUrl,
@@ -40,5 +40,9 @@ export const checkDriverSession = async (
     },
   });
 
+  return response.data;
+};
+export const logout = async (payload: LogoutRequest): Promise<{ success: boolean }> => {
+  const response = await apiClient.post<{ success: boolean }>('/auth/logout', payload);
   return response.data;
 };

@@ -15,6 +15,7 @@ import HeaderWithBackButton from '../../../components/HeaderWithBackButton';
 import { Image } from 'expo-image';
 import { getDriverEarnings } from '../../../services/driverService';
 import type { DriverEarningsQuery, DriverEarningsResponse } from '../../../types/driver';
+import { useNavigation } from '@react-navigation/native';
 
 
 const { width } = Dimensions.get('screen');
@@ -26,6 +27,7 @@ export const WalletScreen: React.FC = () => {
   const [earningsData, setEarningsData] = useState<DriverEarningsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const navigation = useNavigation();
 
   const formatCurrency = (value?: number | null) => {
     if (value === null || value === undefined) {
@@ -101,6 +103,10 @@ export const WalletScreen: React.FC = () => {
     }
     return marked;
   };
+
+  const handleNavigate =() => {
+    navigation.navigate('EarningsScreen' as never)
+  }
 
   const handleApplyRange = () => {
     const { start, end } = selectedRange;
@@ -234,7 +240,7 @@ export const WalletScreen: React.FC = () => {
         </View>
 
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.earningsButton}>
+          <TouchableOpacity style={styles.earningsButton} onPress={handleNavigate}>
             <Text allowFontScaling={false} style={styles.earningsText}>View Earnings</Text>
             <CircleDollarSign color="#fff" size={moderateScale(26)} strokeWidth={1.6} />
           </TouchableOpacity>

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('screen');
 
@@ -67,8 +68,9 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   const navigation = useNavigation();
   const [isRendered, setIsRendered] = useState(visible);
   const animation = useRef(new Animated.Value(visible ? 1 : 0)).current;
+  const { logoutAndRedirect } = useAuth();
+  
 
-  /** ---- HANDLE NAVIGATION ---- **/
   const handleNavigate = useCallback(
     (route?: string) => {
       if (!route) return;
@@ -107,7 +109,6 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     [navigation, onClose],
   );
 
-  /** ---- SIDEBAR ANIMATION ---- **/
   useEffect(() => {
     animation.stopAnimation();
     if (visible) {
@@ -141,6 +142,10 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     inputRange: [0, 1],
     outputRange: [-moderateScale(320), 0],
   });
+
+ const handleLogout = async () => {
+  await logoutAndRedirect(); 
+};
 
   return (
     <View pointerEvents="box-none" style={styles.overlay}>
@@ -218,7 +223,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               ))}
             </View>
 
-            <TouchableOpacity activeOpacity={0.85} style={styles.logoutButton} onPress={() => console.log('Logout')}>
+            <TouchableOpacity activeOpacity={0.85} style={styles.logoutButton} onPress={handleLogout}>
               <Text allowFontScaling={false} style={styles.logoutLabel}>
                 Logout
               </Text>
@@ -231,7 +236,6 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   );
 };
 
-/* ---- STYLES ---- */
 const styles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject, zIndex: 30 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: '#0F172A' },
