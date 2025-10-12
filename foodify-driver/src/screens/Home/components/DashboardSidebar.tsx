@@ -110,26 +110,31 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   );
 
   useEffect(() => {
-    animation.stopAnimation();
+  animation.stopAnimation();
+  const timeout = setTimeout(() => {
     if (visible) {
-      setIsRendered(true);
-      Animated.timing(animation, {
+      if (!isRendered) setIsRendered(true);
+      Animated.spring(animation, {
         toValue: 1,
-        duration: 260,
-        easing: Easing.out(Easing.cubic),
+        speed: 14,
+        bounciness: 6,
         useNativeDriver: true,
       }).start();
     } else {
       Animated.timing(animation, {
         toValue: 0,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
+        duration: 180,
+        easing: Easing.ease,
         useNativeDriver: true,
       }).start(({ finished }) => {
         if (finished) setIsRendered(false);
       });
     }
-  }, [animation, visible]);
+  }, 10);
+
+  return () => clearTimeout(timeout);
+}, [visible]);
+
 
   if (!isRendered) return null;
 
