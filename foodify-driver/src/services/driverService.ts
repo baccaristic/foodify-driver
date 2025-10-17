@@ -8,6 +8,17 @@ import type {
   DriverShiftDetail,
 } from '../types/driver';
 
+export type DriverHeartbeatPayload = {
+  latitude?: number;
+  longitude?: number;
+};
+
+export const sendDriverHeartbeat = async (payload?: DriverHeartbeatPayload): Promise<void> => {
+  const body = payload ?? {};
+
+  await apiClient.post('/api/driver/heartbeat', body);
+};
+
 type UpdateDriverLocationPayload = {
   driverId: number;
   latitude: number;

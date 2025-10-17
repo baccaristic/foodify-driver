@@ -3,6 +3,7 @@ import axios from 'axios';
 import { apiClient } from './api';
 import { ENV } from '../constants/env';
 import type { LoginResponse, LogoutRequest, RefreshResponse, SessionStatusResponse } from '../types/auth';
+import { getDeviceId } from '../utils/deviceId';
 
 const sessionClient = axios.create({
   baseURL: ENV.baseApiUrl,
@@ -13,9 +14,12 @@ const sessionClient = axios.create({
 });
 
 export const loginDriver = async (email: string, password: string): Promise<LoginResponse> => {
+  const deviceId = await getDeviceId();
+
   const response = await apiClient.post<LoginResponse>('/api/auth/driver/login', {
     email,
     password,
+    deviceId,
   });
 
   return response.data;
@@ -34,11 +38,15 @@ export const refreshDriverSession = async (
 export const checkDriverSession = async (
   accessToken: string,
 ): Promise<SessionStatusResponse> => {
-  const response = await sessionClient.get<SessionStatusResponse>('/api/auth/heart-beat', {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
+  const response = await sessionClient.post<SessionStatusResponse>(
+    '/api/driver/heartbeat',
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     },
-  });
+  );
 
   return response.data;
 };
