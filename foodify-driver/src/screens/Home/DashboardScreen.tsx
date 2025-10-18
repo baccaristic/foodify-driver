@@ -1512,7 +1512,7 @@ export const DashboardScreen: React.FC = () => {
         {isOrderDetailsVisible && (
           <>
             <PlatformBlurView intensity={45} tint="dark" style={styles.blurOverlay} />
-            <OngoingOrderDetailsOverlay onClose={handleCloseOrderDetails} />
+            <OngoingOrderDetailsOverlay order={ongoingOrder} onClose={handleCloseOrderDetails} />
           </>
         )}
         {isScanOverlayVisible && (
