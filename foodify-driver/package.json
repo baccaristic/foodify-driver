@@ -18,7 +18,6 @@
     "expo-av": "~16.0.7",
     "expo-blur": "~15.0.7",
     "expo-camera": "~17.0.8",
-    "expo-document-picker": "^14.0.7",
     "expo-image": "~3.0.9",
     "expo-linear-gradient": "~15.0.7",
     "expo-location": "~19.0.7",
