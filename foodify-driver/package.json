@@ -36,6 +36,9 @@
     "sockjs-client": "^1.6.1",
     "zustand": "^4.5.2"
   },
+  "overrides": {
+    "react-native-safe-area-context": "~5.6.0"
+  },
   "devDependencies": {
     "@types/react": "~19.1.0",
     "@types/sockjs-client": "^1.5.4",
