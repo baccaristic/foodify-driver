@@ -83,7 +83,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             navigation.navigate('EarningsScreen' as never);
             break;
           case 'RewardsScreen':
-            navigation.navigate('RewardsScreen' as never);
+            navigation.navigate('ProfileCompletionScreen' as never);
             break;
           case 'WalletScreen':
             navigation.navigate('WalletScreen' as never);

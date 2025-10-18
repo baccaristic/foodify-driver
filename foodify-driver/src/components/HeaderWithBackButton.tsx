@@ -40,7 +40,7 @@ const HeaderWithBackButton: React.FC<HeaderWithBackButtonProps> = ({
         activeOpacity={0.8}
         style={styles.backButton}
       >
-        <ArrowLeft color="#CA251B" size={s(26)} />
+        <ArrowLeft color="white" size={s(26)} />
       </TouchableOpacity>
 
       <Text style={[styles.title, { marginLeft: titleMarginLeft }]} numberOfLines={1}>
@@ -59,7 +59,7 @@ const styles = ScaledSheet.create({
     paddingHorizontal: '16@s',
     paddingTop: '20@vs',
     paddingBottom: '12@vs',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#CA251B',
   },
   withBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -70,13 +70,13 @@ const styles = ScaledSheet.create({
     height: '40@s',
     borderRadius: '20@s',
     borderWidth: 1,
-    borderColor: '#CA251B',
+    borderColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
     fontSize: '18@ms',
     fontWeight: '700',
-    color: '#17213A',
+    color: 'white',
   },
 });

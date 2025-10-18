@@ -15,6 +15,8 @@ import { WalletScreen } from '../screens/Home/Profile/WalletScreen';
 import { InboxScreen } from '../screens/Home/Profile/InboxScreen';
 import { RewardsScreen } from '../screens/Home/Profile/RewardsScreen';
 import EarningsScreen from '../screens/Home/Profile/EarningsScreen';
+import ProfileCompletionScreen from '../screens/Home/Profile/ProfileCompletionScreen';
+import UploadStepScreen from '../screens/Home/Profile/UploadStepScreen';
 
 const Stack = createStackNavigator();
 
@@ -125,6 +127,9 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="RewardsScreen" component={RewardsScreen} />
             <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
             <Stack.Screen name="DeleteAccountScreen" component={DeleteAccountScreen} />
+            <Stack.Screen name="ProfileCompletionScreen" component={ProfileCompletionScreen} />
+            <Stack.Screen name="UploadStepScreen" component={UploadStepScreen} />
+
           </>
         )}
       </Stack.Navigator>
