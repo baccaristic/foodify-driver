@@ -15,6 +15,7 @@ import { WalletScreen } from '../screens/Home/Profile/WalletScreen';
 import { InboxScreen } from '../screens/Home/Profile/InboxScreen';
 import { RewardsScreen } from '../screens/Home/Profile/RewardsScreen';
 import EarningsScreen from '../screens/Home/Profile/EarningsScreen';
+import { GlobalIncomingOrderNotifier } from '../components/GlobalIncomingOrderNotifier';
 
 const Stack = createStackNavigator();
 
@@ -110,24 +111,27 @@ export const AppNavigator: React.FC = () => {
     );
   }
 
- return (
+  return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!accessToken ? (
-          <Stack.Screen name="LoginScreen" component={LoginScreen} />
-        ) : (
-          <>
-            <Stack.Screen name="DashboardScreen" component={DashboardScreen} />
-            <Stack.Screen name="ProfileSettingsScreen" component={ProfileSettingsScreen} />
-            <Stack.Screen name="WalletScreen" component={WalletScreen} />
-            <Stack.Screen name="InboxScreen" component={InboxScreen} />
-            <Stack.Screen name="EarningsScreen" component={EarningsScreen} />
-            <Stack.Screen name="RewardsScreen" component={RewardsScreen} />
-            <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
-            <Stack.Screen name="DeleteAccountScreen" component={DeleteAccountScreen} />
-          </>
-        )}
-      </Stack.Navigator>
+      <>
+        <GlobalIncomingOrderNotifier />
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {!accessToken ? (
+            <Stack.Screen name="LoginScreen" component={LoginScreen} />
+          ) : (
+            <>
+              <Stack.Screen name="DashboardScreen" component={DashboardScreen} />
+              <Stack.Screen name="ProfileSettingsScreen" component={ProfileSettingsScreen} />
+              <Stack.Screen name="WalletScreen" component={WalletScreen} />
+              <Stack.Screen name="InboxScreen" component={InboxScreen} />
+              <Stack.Screen name="EarningsScreen" component={EarningsScreen} />
+              <Stack.Screen name="RewardsScreen" component={RewardsScreen} />
+              <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
+              <Stack.Screen name="DeleteAccountScreen" component={DeleteAccountScreen} />
+            </>
+          )}
+        </Stack.Navigator>
+      </>
     </NavigationContainer>
   );
 };
