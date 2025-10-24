@@ -91,7 +91,7 @@ export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
 
       <View style={styles.card}>
         <View style={styles.row}>
-          <View style={styles.column}>
+          <View >
             <Text allowFontScaling={false} style={styles.title}>
               Your order
             </Text>
@@ -99,7 +99,7 @@ export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={onSeeOrderDetails}
-            style={[styles.column, styles.primaryAction]}
+            style={ styles.primaryAction}
           >
             <Text allowFontScaling={false} style={styles.primaryActionLabel}>
               See order details
@@ -152,7 +152,7 @@ export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={onLookForDirection}
-            style={[styles.secondaryAction, styles.column]}
+            style={styles.secondaryAction}
           >
             <Text allowFontScaling={false} style={styles.secondaryActionLabel}>
               Look for direction
@@ -162,7 +162,7 @@ export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={onScanToPickup}
-              style={[styles.secondaryAction, styles.column, styles.scanAction]}
+              style={[styles.secondaryAction, styles.scanAction]}
             >
               <View style={styles.scanActionContent}>
                 <ScanLine color="#ffffff" size={moderateScale(16)} />
@@ -249,9 +249,6 @@ const styles = StyleSheet.create({
   },
   bottomRow: {
     marginTop: verticalScale(16),
-  },
-  column: {
-    flex: 1,
   },
   title: {
     fontSize: moderateScale(18),
