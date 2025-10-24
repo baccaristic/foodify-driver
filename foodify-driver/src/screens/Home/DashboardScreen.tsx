@@ -32,6 +32,10 @@ import {
   updateDriverAvailability,
   updateDriverLocation,
 } from '../../services/driverService';
+import {
+  startBackgroundLocationUpdates,
+  stopBackgroundLocationUpdates,
+} from '../../services/backgroundLocationTask';
 import { IncomingOrderOverlay } from '../../components/IncomingOrderOverlay';
 import { OngoingOrderBanner } from '../../components/OngoingOrderBanner';
 import { OngoingOrderDetailsOverlay } from '../../components/OngoingOrderDetailsOverlay';
@@ -813,12 +817,15 @@ export const DashboardScreen: React.FC = () => {
 
     const startLocationTracking = async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
+        const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
 
-        if (status !== 'granted') {
+        if (foregroundStatus !== 'granted') {
           console.warn('Permission to access location was denied');
           return;
         }
+
+        const backgroundPermissions = await Location.requestBackgroundPermissionsAsync();
+        const backgroundStatus = backgroundPermissions.status;
 
         const currentLocation = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.BestForNavigation,
@@ -830,6 +837,12 @@ export const DashboardScreen: React.FC = () => {
 
         applyRegionUpdate(currentLocation.coords, true);
         await sendLocationUpdateRef.current?.(currentLocation.coords);
+
+        if (backgroundStatus === 'granted') {
+          await startBackgroundLocationUpdates();
+        } else {
+          console.warn('Background location permission was denied');
+        }
 
         locationWatcher.current = await Location.watchPositionAsync(
           {
@@ -857,6 +870,7 @@ export const DashboardScreen: React.FC = () => {
       isMounted = false;
       locationWatcher.current?.remove();
       locationWatcher.current = null;
+      void stopBackgroundLocationUpdates();
     };
   }, [applyRegionUpdate]);
 
