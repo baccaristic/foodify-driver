@@ -18,6 +18,7 @@ import { moderateScale, verticalScale, s } from 'react-native-size-matters';
 import { isAxiosError } from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { loginDriver } from '../../services/authService';
+import { useNavigation } from '@react-navigation/native';
 
 export const LoginScreen: React.FC = () => {
   const { authenticate } = useAuth();
@@ -26,6 +27,7 @@ export const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const navigation =useNavigation();
 
   const isFormValid = useMemo(() => {
     return  password.length > 0 && email.trim().length > 0;
@@ -54,6 +56,7 @@ export const LoginScreen: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
+    navigation.navigate('ProfileCompletionScreen' as never );
   }, [authenticate, email, password, isFormValid, isSubmitting]);
 
   return (
