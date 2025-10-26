@@ -1,5 +1,10 @@
 import type { ExpoConfig } from 'expo/config';
 
+const googleMapsApiKey =
+  process.env.GOOGLE_MAPS_API_KEY ??
+  process.env.ANDROID_GOOGLE_MAPS_API_KEY ??
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+
 const config: ExpoConfig = {
   name: 'foodify-driver',
   slug: 'foodify-driver',
@@ -15,6 +20,11 @@ const config: ExpoConfig = {
   },
   ios: {
     supportsTablet: true,
+    config: googleMapsApiKey
+      ? {
+          googleMapsApiKey,
+        }
+      : undefined,
   },
   android: {
     adaptiveIcon: {
@@ -23,6 +33,13 @@ const config: ExpoConfig = {
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
+    config: googleMapsApiKey
+      ? {
+          googleMaps: {
+            apiKey: googleMapsApiKey,
+          },
+        }
+      : undefined,
   },
   web: {
     favicon: './assets/favicon.png',
