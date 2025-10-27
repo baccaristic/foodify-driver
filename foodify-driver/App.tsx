@@ -2,6 +2,8 @@ import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import './src/services/backgroundLocationTask';
+
 import { SessionHeartbeatManager } from './src/components/SessionHeartbeatManager';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { WebSocketProvider } from './src/contexts/WebSocketContext';
