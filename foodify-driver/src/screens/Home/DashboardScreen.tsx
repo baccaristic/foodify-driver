@@ -364,7 +364,6 @@ export const DashboardScreen: React.FC = () => {
   const cashCardShadowColor = isCashAtOrAboveThreshold
     ? 'rgba(202, 37, 27, 0.42)'
     : 'rgba(15, 23, 42, 0.35)';
-  const shouldShowThresholdBadge = depositThresholdDisplay !== null;
   const depositThresholdTooltipDisplay = depositThresholdDisplay ?? '250 DT';
 
   const callLabel = shouldCallRestaurant ? 'Call Restaurant' : 'Call Client';
@@ -1543,16 +1542,16 @@ export const DashboardScreen: React.FC = () => {
                     </View>
                   ) : null}
 
-                  <View
-                    style={[
-                      styles.cashCard,
-                      { backgroundColor: cashCardBackground, shadowColor: cashCardShadowColor },
-                    ]}
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={handleToggleCashTooltip}
+                    style={styles.cashCardPressable}
                   >
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      onPress={handleToggleCashTooltip}
-                      style={styles.cashCardPressable}
+                    <View
+                      style={[
+                        styles.cashCard,
+                        { backgroundColor: cashCardBackground, shadowColor: cashCardShadowColor },
+                      ]}
                     >
                       <Text allowFontScaling={false} style={styles.cashCardLabel}>
                         Cash on hand
@@ -1560,22 +1559,14 @@ export const DashboardScreen: React.FC = () => {
                       <Text allowFontScaling={false} style={styles.cashCardAmount}>
                         {cashOnHandDisplay}
                       </Text>
-                    </TouchableOpacity>
 
-                    {shouldShowThresholdBadge ? (
-                      <View style={styles.cashBadge}>
-                        <Text allowFontScaling={false} style={styles.cashBadgeText}>
-                          {depositThresholdDisplay}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  {isCashAtOrAboveThreshold ? (
-                    <View style={styles.cashWarningIndicator}>
-                      <TriangleAlert color="#ffffff" size={moderateScale(20)} strokeWidth={2.5} />
+                      {isCashAtOrAboveThreshold ? (
+                        <View style={styles.cashWarningIndicator}>
+                          <TriangleAlert color="#ffffff" size={moderateScale(14)} strokeWidth={2.25} />
+                        </View>
+                      ) : null}
                     </View>
-                  ) : null}
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -1838,47 +1829,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
   },
-  cashCard: {
-    borderRadius: moderateScale(24),
-    paddingHorizontal: moderateScale(20),
-    paddingVertical: verticalScale(14),
-    minWidth: moderateScale(180),
-    shadowOffset: { width: 0, height: verticalScale(6) },
-    shadowOpacity: 0.48,
-    shadowRadius: moderateScale(12),
-    elevation: moderateScale(6),
+  cashCardPressable: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cashCardPressable: { alignItems: 'center' },
+  cashCard: {
+    borderRadius: moderateScale(16),
+    paddingHorizontal: moderateScale(16),
+    paddingVertical: verticalScale(10),
+    minWidth: moderateScale(140),
+    shadowOffset: { width: 0, height: verticalScale(4) },
+    shadowOpacity: 0.38,
+    shadowRadius: moderateScale(10),
+    elevation: moderateScale(4),
+    alignItems: 'center',
+  },
   cashCardLabel: {
     color: '#E2E8F0',
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(11),
     fontWeight: '600',
-    letterSpacing: moderateScale(0.6),
+    letterSpacing: moderateScale(0.5),
     textTransform: 'uppercase',
   },
   cashCardAmount: {
-    marginTop: verticalScale(6),
+    marginTop: verticalScale(4),
     color: '#ffffff',
-    fontSize: moderateScale(22),
+    fontSize: moderateScale(19),
     fontWeight: '700',
     letterSpacing: moderateScale(0.4),
-  },
-  cashBadge: {
-    marginTop: verticalScale(12),
-    paddingHorizontal: moderateScale(16),
-    paddingVertical: verticalScale(6),
-    borderRadius: moderateScale(999),
-    backgroundColor: '#B91C1C',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-  },
-  cashBadgeText: {
-    color: '#ffffff',
-    fontSize: moderateScale(13),
-    fontWeight: '700',
-    letterSpacing: moderateScale(0.4),
-    textAlign: 'center',
   },
   cashTooltipContainer: {
     position: 'absolute',
@@ -1918,19 +1896,18 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(15, 23, 42, 0.96)',
   },
   cashWarningIndicator: {
-    marginTop: verticalScale(10),
-    alignSelf: 'center',
-    width: moderateScale(44),
-    height: moderateScale(44),
-    borderRadius: moderateScale(22),
-    backgroundColor: '#CA251B',
+    marginTop: verticalScale(8),
+    width: moderateScale(28),
+    height: moderateScale(28),
+    borderRadius: moderateScale(14),
+    backgroundColor: '#B91C1C',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(202, 37, 27, 0.28)',
+    shadowColor: 'rgba(185, 28, 28, 0.28)',
     shadowOpacity: 1,
-    shadowRadius: moderateScale(12),
-    shadowOffset: { width: 0, height: verticalScale(6) },
-    elevation: moderateScale(6),
+    shadowRadius: moderateScale(8),
+    shadowOffset: { width: 0, height: verticalScale(3) },
+    elevation: moderateScale(3),
   },
   locationButton: {
     width: moderateScale(48),
