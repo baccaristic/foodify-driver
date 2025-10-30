@@ -1,12 +1,36 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, Text, View } from 'react-native';
-import { Image } from 'expo-image';
-import { HandCoins } from 'lucide-react-native';
-import { ScaledSheet, moderateScale } from 'react-native-size-matters';
+import {
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  RefreshControl,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { CalendarDays, ChevronDown } from 'lucide-react-native';
+import Svg, { Path, Rect } from 'react-native-svg';
+import { ScaledSheet } from 'react-native-size-matters';
 
-import HeaderWithBackButton from '../../../components/HeaderWithBackButton';
 import { getDriverDeposits } from '../../../services/driverService';
 import type { DriverDeposit } from '../../../types/driver';
+
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
 
 const formatCurrency = (value: number | null | undefined): string => {
   if (value === null || value === undefined) {
@@ -42,11 +66,82 @@ const formatDate = (value: string): string => {
   });
 };
 
+type PickerOption = {
+  label: string;
+  value: number;
+};
+
+const PickerModal: React.FC<{
+  title: string;
+  visible: boolean;
+  options: PickerOption[];
+  selectedValue: number;
+  onSelect: (value: number) => void;
+  onClose: () => void;
+}> = ({ title, visible, options, selectedValue, onSelect, onClose }) => {
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.modalBackdrop}>
+          <TouchableWithoutFeedback>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>{title}</Text>
+
+              {options.map((option) => {
+                const isSelected = option.value === selectedValue;
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[styles.modalOption, isSelected && styles.modalOptionSelected]}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      onSelect(option.value);
+                      onClose();
+                    }}
+                  >
+                    <Text
+                      style={[styles.modalOptionLabel, isSelected && styles.modalOptionLabelSelected]}
+                    >
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+};
+
+const PayoutIcon: React.FC = () => (
+  <View style={styles.iconContainer}>
+    <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
+      <Rect width={32} height={32} rx={12} fill="#CA251B" />
+      <Path
+        d="M9.5 15.5c0-1.105.895-2 2-2h9c1.105 0 2 .895 2 2v4.1c0 1.105-.895 2-2 2h-9c-1.105 0-2-.895-2-2v-4.1Z"
+        fill="#FFFFFF"
+      />
+      <Path d="M11.5 17.25h9" stroke="#CA251B" strokeWidth={1.6} strokeLinecap="round" />
+      <Path
+        d="M15.25 14.25 16 15l.75-.75M16 9v6"
+        stroke="#FFFFFF"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  </View>
+);
+
 const PayoutsScreen: React.FC = () => {
   const [deposits, setDeposits] = useState<DriverDeposit[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMonthPickerVisible, setMonthPickerVisible] = useState(false);
+  const [isYearPickerVisible, setYearPickerVisible] = useState(false);
 
   const sortedDeposits = useMemo(
     () =>
@@ -56,14 +151,34 @@ const PayoutsScreen: React.FC = () => {
     [deposits],
   );
 
-  const totalIncome = useMemo(
-    () =>
-      sortedDeposits.reduce((total, deposit) => {
-        const amount = Number(deposit.depositAmount ?? 0);
-        return total + (Number.isNaN(amount) ? 0 : amount);
-      }, 0),
-    [sortedDeposits],
-  );
+  const initialReferenceDate = useMemo(() => {
+    if (sortedDeposits[0]) {
+      const parsed = new Date(sortedDeposits[0].createdAt);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+
+    return new Date();
+  }, [sortedDeposits]);
+
+  const [selectedYear, setSelectedYear] = useState<number>(initialReferenceDate.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(initialReferenceDate.getMonth());
+
+  useEffect(() => {
+    if (!sortedDeposits[0]) {
+      return;
+    }
+
+    const latest = new Date(sortedDeposits[0].createdAt);
+
+    if (Number.isNaN(latest.getTime())) {
+      return;
+    }
+
+    setSelectedYear((current) => (current === latest.getFullYear() ? current : latest.getFullYear()));
+    setSelectedMonth((current) => (current === latest.getMonth() ? current : latest.getMonth()));
+  }, [sortedDeposits]);
 
   const fetchDeposits = useCallback(
     async ({ isRefresh = false }: { isRefresh?: boolean } = {}) => {
@@ -100,33 +215,87 @@ const PayoutsScreen: React.FC = () => {
     fetchDeposits({ isRefresh: true });
   }, [fetchDeposits]);
 
-  const renderHeader = useCallback(
-    () => (
-      <View style={styles.headerSection}>
-        <View style={styles.headerImageWrapper}>
-          <Image
-            source={require('../../../../assets/hand coin.png')}
-            style={styles.headerImage}
-            contentFit="contain"
-          />
-        </View>
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
 
-        <View style={styles.totalBadge}>
-          <Text style={styles.totalBadgeLabel}>Total Income</Text>
-          <Text style={styles.totalBadgeValue}>{formatCurrency(totalIncome)}</Text>
-        </View>
-      </View>
-    ),
-    [totalIncome],
+    sortedDeposits.forEach((deposit) => {
+      const parsed = new Date(deposit.createdAt);
+      const year = parsed.getFullYear();
+
+      if (!Number.isNaN(year)) {
+        years.add(year);
+      }
+    });
+
+    if (years.size === 0) {
+      years.add(selectedYear);
+    }
+
+    return Array.from(years).sort((a, b) => b - a);
+  }, [selectedYear, sortedDeposits]);
+
+  useEffect(() => {
+    if (!availableYears.includes(selectedYear)) {
+      setSelectedYear(availableYears[0]);
+    }
+  }, [availableYears, selectedYear]);
+
+  const availableMonths = useMemo(() => {
+    const months = new Set<number>();
+
+    sortedDeposits.forEach((deposit) => {
+      const parsed = new Date(deposit.createdAt);
+      const year = parsed.getFullYear();
+      const month = parsed.getMonth();
+
+      if (!Number.isNaN(year) && !Number.isNaN(month) && year === selectedYear) {
+        months.add(month);
+      }
+    });
+
+    if (months.size === 0) {
+      months.add(selectedMonth);
+    }
+
+    return Array.from(months).sort((a, b) => b - a);
+  }, [selectedMonth, selectedYear, sortedDeposits]);
+
+  useEffect(() => {
+    if (!availableMonths.includes(selectedMonth)) {
+      setSelectedMonth(availableMonths[0]);
+    }
+  }, [availableMonths, selectedMonth]);
+
+  const filteredDeposits = useMemo(
+    () =>
+      sortedDeposits.filter((deposit) => {
+        const parsed = new Date(deposit.createdAt);
+        const year = parsed.getFullYear();
+        const month = parsed.getMonth();
+
+        if (Number.isNaN(year) || Number.isNaN(month)) {
+          return false;
+        }
+
+        return year === selectedYear && month === selectedMonth;
+      }),
+    [selectedMonth, selectedYear, sortedDeposits],
+  );
+
+  const filteredTotalIncome = useMemo(
+    () =>
+      filteredDeposits.reduce((total, deposit) => {
+        const amount = Number(deposit.depositAmount ?? 0);
+        return total + (Number.isNaN(amount) ? 0 : amount);
+      }, 0),
+    [filteredDeposits],
   );
 
   const renderItem = useCallback(({ item }: { item: DriverDeposit }) => {
     return (
       <View style={styles.listItem}>
         <View style={styles.itemLeft}>
-          <View style={styles.iconWrapper}>
-            <HandCoins color="#CA251B" size={moderateScale(26)} strokeWidth={2.3} />
-          </View>
+          <PayoutIcon />
 
           <View>
             <Text style={styles.itemTitle}>Paiment Recieved</Text>
@@ -168,64 +337,142 @@ const PayoutsScreen: React.FC = () => {
     );
   }, [error, isLoading]);
 
-  return (
-    <View style={styles.container}>
-      <HeaderWithBackButton title="Payout History" titleMarginLeft={moderateScale(48)} />
+  const monthOptions = useMemo<PickerOption[]>(
+    () =>
+      availableMonths.map((month) => ({
+        label: MONTH_NAMES[month],
+        value: month,
+      })),
+    [availableMonths],
+  );
 
-      <FlatList
-        data={sortedDeposits}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        ListHeaderComponent={renderHeader}
-        contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={renderSeparator}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#CA251B"
-            colors={["#CA251B"]}
-          />
-        }
-        ListEmptyComponent={renderEmpty}
+  const yearOptions = useMemo<PickerOption[]>(
+    () => availableYears.map((year) => ({ label: `${year}`, value: year })),
+    [availableYears],
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <View style={styles.container}>
+        <View style={styles.filtersRow}>
+          <View style={styles.pillsGroup}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.filterPill}
+              onPress={() => setMonthPickerVisible(true)}
+            >
+              <CalendarDays color="#CA251B" size={18} strokeWidth={2.2} />
+              <Text style={styles.filterPillText}>{MONTH_NAMES[selectedMonth]}</Text>
+              <ChevronDown color="#CA251B" size={18} strokeWidth={2.2} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[styles.filterPill, styles.yearPill]}
+              onPress={() => setYearPickerVisible(true)}
+            >
+              <Text style={styles.filterPillText}>{selectedYear}</Text>
+              <ChevronDown color="#CA251B" size={18} strokeWidth={2.2} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.totalBadge}>
+            <Text style={styles.totalBadgeLabel}>Total Income</Text>
+            <Text style={styles.totalBadgeValue}>{formatCurrency(filteredTotalIncome)}</Text>
+          </View>
+        </View>
+
+        <FlatList
+          data={filteredDeposits}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={renderSeparator}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#CA251B"
+              colors={["#CA251B"]}
+            />
+          }
+          ListEmptyComponent={renderEmpty}
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+
+      <PickerModal
+        title="Select month"
+        visible={isMonthPickerVisible}
+        options={monthOptions}
+        selectedValue={selectedMonth}
+        onSelect={setSelectedMonth}
+        onClose={() => setMonthPickerVisible(false)}
       />
-    </View>
+
+      <PickerModal
+        title="Select year"
+        visible={isYearPickerVisible}
+        options={yearOptions}
+        selectedValue={selectedYear}
+        onSelect={setSelectedYear}
+        onClose={() => setYearPickerVisible(false)}
+      />
+    </SafeAreaView>
   );
 };
 
 export default PayoutsScreen;
 
 const styles = ScaledSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  headerSection: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    paddingTop: '16@vs',
-    paddingBottom: '40@vs',
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: '20@s',
+    paddingBottom: '20@vs',
   },
-  headerImageWrapper: {
-    width: '180@s',
-    height: '140@vs',
+  filtersRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    marginTop: '12@vs',
+    marginBottom: '20@vs',
   },
-  headerImage: {
-    width: '180@s',
-    height: '140@vs',
+  pillsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: '22@s',
+    borderWidth: 1,
+    borderColor: '#E3E3E3',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: '14@s',
+    paddingVertical: '10@vs',
+    marginRight: '12@s',
+  },
+  yearPill: {
+    marginRight: 0,
+    paddingHorizontal: '18@s',
+  },
+  filterPillText: {
+    fontSize: '14@ms',
+    color: '#1F1F1F',
+    fontWeight: '600',
+    marginHorizontal: '8@s',
   },
   totalBadge: {
-    position: 'absolute',
-    right: '20@s',
-    bottom: '8@vs',
     backgroundColor: '#CA251B',
-    borderRadius: '999@s',
-    paddingVertical: '10@vs',
-    paddingHorizontal: '22@s',
+    borderRadius: '24@s',
+    paddingVertical: '12@vs',
+    paddingHorizontal: '18@s',
+    alignItems: 'flex-start',
   },
   totalBadgeLabel: {
     fontSize: '12@ms',
@@ -233,15 +480,13 @@ const styles = ScaledSheet.create({
     opacity: 0.9,
   },
   totalBadgeValue: {
-    marginTop: '2@vs',
     fontSize: '18@ms',
     color: '#FFFFFF',
     fontWeight: '700',
+    marginTop: '2@vs',
   },
   listContent: {
-    paddingHorizontal: '20@s',
-    paddingTop: '12@vs',
-    paddingBottom: '32@vs',
+    paddingBottom: '40@vs',
   },
   listItem: {
     flexDirection: 'row',
@@ -252,37 +497,32 @@ const styles = ScaledSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  iconWrapper: {
-    width: '52@s',
-    height: '52@s',
-    borderRadius: '26@s',
-    backgroundColor: '#FCE9E7',
-    alignItems: 'center',
-    justifyContent: 'center',
+  iconContainer: {
     marginRight: '14@s',
   },
   itemTitle: {
-    fontSize: '15@ms',
+    fontSize: '16@ms',
     color: '#1F1F1F',
     fontWeight: '600',
   },
   itemSubtitle: {
     marginTop: '4@vs',
-    fontSize: '12@ms',
+    fontSize: '13@ms',
     color: '#8A8A8A',
   },
   itemAmount: {
-    fontSize: '17@ms',
+    fontSize: '18@ms',
     fontWeight: '700',
     color: '#CA251B',
   },
   separator: {
-    height: '24@vs',
+    height: '18@vs',
   },
   loadingState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: '40@vs',
   },
   errorContainer: {
     marginTop: '32@vs',
@@ -294,7 +534,7 @@ const styles = ScaledSheet.create({
     fontSize: '14@ms',
   },
   emptyState: {
-    marginTop: '48@vs',
+    marginTop: '60@vs',
     alignItems: 'center',
   },
   emptyTitle: {
@@ -306,5 +546,42 @@ const styles = ScaledSheet.create({
     marginTop: '6@vs',
     fontSize: '13@ms',
     color: '#8A8A8A',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: '32@s',
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: '20@s',
+    paddingVertical: '20@vs',
+    paddingHorizontal: '20@s',
+  },
+  modalTitle: {
+    fontSize: '16@ms',
+    fontWeight: '700',
+    color: '#1F1F1F',
+    marginBottom: '12@vs',
+  },
+  modalOption: {
+    paddingVertical: '10@vs',
+    paddingHorizontal: '12@s',
+    borderRadius: '12@s',
+    marginBottom: '8@vs',
+  },
+  modalOptionSelected: {
+    backgroundColor: '#FCE9E7',
+  },
+  modalOptionLabel: {
+    fontSize: '15@ms',
+    color: '#1F1F1F',
+  },
+  modalOptionLabelSelected: {
+    color: '#CA251B',
+    fontWeight: '600',
   },
 });
