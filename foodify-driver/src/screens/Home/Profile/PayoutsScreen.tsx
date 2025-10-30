@@ -2,20 +2,24 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Modal,
   RefreshControl,
+  SafeAreaView,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CalendarDays, ChevronDown } from 'lucide-react-native';
-import Svg, { Path, Rect } from 'react-native-svg';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
+import { ArrowLeft, BanknoteArrowDown, CalendarDays, ChevronDown } from 'lucide-react-native';
 import { ScaledSheet } from 'react-native-size-matters';
 
 import { getDriverDeposits } from '../../../services/driverService';
 import type { DriverDeposit } from '../../../types/driver';
+
+const payoutsIllustration = require('../../../../assets/payouts-image.png');
 
 const MONTH_NAMES = [
   'January',
@@ -85,7 +89,9 @@ const PickerModal: React.FC<{
         <View style={styles.modalBackdrop}>
           <TouchableWithoutFeedback>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>{title}</Text>
+              <Text allowFontScaling={false} style={styles.modalTitle}>
+                {title}
+              </Text>
 
               {options.map((option) => {
                 const isSelected = option.value === selectedValue;
@@ -100,6 +106,7 @@ const PickerModal: React.FC<{
                     }}
                   >
                     <Text
+                      allowFontScaling={false}
                       style={[styles.modalOptionLabel, isSelected && styles.modalOptionLabelSelected]}
                     >
                       {option.label}
@@ -117,25 +124,14 @@ const PickerModal: React.FC<{
 
 const PayoutIcon: React.FC = () => (
   <View style={styles.iconContainer}>
-    <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
-      <Rect width={32} height={32} rx={12} fill="#CA251B" />
-      <Path
-        d="M9.5 15.5c0-1.105.895-2 2-2h9c1.105 0 2 .895 2 2v4.1c0 1.105-.895 2-2 2h-9c-1.105 0-2-.895-2-2v-4.1Z"
-        fill="#FFFFFF"
-      />
-      <Path d="M11.5 17.25h9" stroke="#CA251B" strokeWidth={1.6} strokeLinecap="round" />
-      <Path
-        d="M15.25 14.25 16 15l.75-.75M16 9v6"
-        stroke="#FFFFFF"
-        strokeWidth={1.6}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
+    <View style={styles.iconCircle}>
+      <BanknoteArrowDown color="#FFFFFF" size={18} strokeWidth={2.4} />
+    </View>
   </View>
 );
 
 const PayoutsScreen: React.FC = () => {
+  const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
   const [deposits, setDeposits] = useState<DriverDeposit[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -298,12 +294,18 @@ const PayoutsScreen: React.FC = () => {
           <PayoutIcon />
 
           <View>
-            <Text style={styles.itemTitle}>Paiment Recieved</Text>
-            <Text style={styles.itemSubtitle}>{formatDate(item.createdAt)}</Text>
+            <Text allowFontScaling={false} style={styles.itemTitle}>
+              Paiment Recieved
+            </Text>
+            <Text allowFontScaling={false} style={styles.itemSubtitle}>
+              {formatDate(item.createdAt)}
+            </Text>
           </View>
         </View>
 
-        <Text style={styles.itemAmount}>{formatCurrency(item.depositAmount)}</Text>
+        <Text allowFontScaling={false} style={styles.itemAmount}>
+          {formatCurrency(item.depositAmount)}
+        </Text>
       </View>
     );
   }, []);
@@ -324,15 +326,21 @@ const PayoutsScreen: React.FC = () => {
     if (error) {
       return (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text allowFontScaling={false} style={styles.errorText}>
+            {error}
+          </Text>
         </View>
       );
     }
 
     return (
       <View style={styles.emptyState}>
-        <Text style={styles.emptyTitle}>No payouts yet</Text>
-        <Text style={styles.emptySubtitle}>Your payout history will appear here.</Text>
+        <Text allowFontScaling={false} style={styles.emptyTitle}>
+          No payouts yet
+        </Text>
+        <Text allowFontScaling={false} style={styles.emptySubtitle}>
+          Your payout history will appear here.
+        </Text>
       </View>
     );
   }, [error, isLoading]);
@@ -352,34 +360,64 @@ const PayoutsScreen: React.FC = () => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.filtersRow}>
-          <View style={styles.pillsGroup}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.filterPill}
-              onPress={() => setMonthPickerVisible(true)}
-            >
-              <CalendarDays color="#CA251B" size={18} strokeWidth={2.2} />
-              <Text style={styles.filterPillText}>{MONTH_NAMES[selectedMonth]}</Text>
-              <ChevronDown color="#CA251B" size={18} strokeWidth={2.2} />
-            </TouchableOpacity>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+            activeOpacity={0.85}
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <ArrowLeft color="#1F1F1F" size={22} strokeWidth={2.4} />
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={[styles.filterPill, styles.yearPill]}
-              onPress={() => setYearPickerVisible(true)}
-            >
-              <Text style={styles.filterPillText}>{selectedYear}</Text>
-              <ChevronDown color="#CA251B" size={18} strokeWidth={2.2} />
-            </TouchableOpacity>
+          <Text allowFontScaling={false} style={styles.headerTitle}>
+            Payout History
+          </Text>
+
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <View style={styles.heroSection}>
+          <View style={styles.heroCard}>
+            <Image resizeMode="contain" source={payoutsIllustration} style={styles.heroImage} />
           </View>
 
           <View style={styles.totalBadge}>
-            <Text style={styles.totalBadgeLabel}>Total Income</Text>
-            <Text style={styles.totalBadgeValue}>{formatCurrency(filteredTotalIncome)}</Text>
+            <Text allowFontScaling={false} style={styles.totalBadgeLabel}>
+              Total Income
+            </Text>
+            <Text allowFontScaling={false} style={styles.totalBadgeValue}>
+              {formatCurrency(filteredTotalIncome)}
+            </Text>
           </View>
+        </View>
+
+        <View style={styles.filtersRow}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.filterPill}
+            onPress={() => setMonthPickerVisible(true)}
+          >
+            <CalendarDays color="#CA251B" size={18} strokeWidth={2.2} />
+            <Text allowFontScaling={false} style={styles.filterPillText}>
+              {MONTH_NAMES[selectedMonth]}
+            </Text>
+            <ChevronDown color="#CA251B" size={18} strokeWidth={2.2} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={[styles.filterPill, styles.yearPill]}
+            onPress={() => setYearPickerVisible(true)}
+          >
+            <Text allowFontScaling={false} style={styles.filterPillText}>
+              {selectedYear}
+            </Text>
+            <ChevronDown color="#CA251B" size={18} strokeWidth={2.2} />
+          </TouchableOpacity>
         </View>
 
         <FlatList
@@ -432,19 +470,59 @@ const styles = ScaledSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: '20@s',
-    paddingBottom: '20@vs',
+    paddingHorizontal: '24@s',
+    paddingBottom: '24@vs',
+    paddingTop: '12@vs',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    width: '44@s',
+    height: '44@s',
+    borderRadius: '22@s',
+    borderWidth: 1,
+    borderColor: '#E6E6E6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  headerTitle: {
+    fontSize: '20@ms',
+    fontWeight: '700',
+    color: '#1F1F1F',
+  },
+  headerSpacer: {
+    width: '44@s',
+    height: '44@s',
+  },
+  heroSection: {
+    marginTop: '24@vs',
+    marginBottom: '36@vs',
+    position: 'relative',
+    alignItems: 'center',
+    paddingBottom: '28@vs',
+  },
+  heroCard: {
+    width: '100%',
+    borderRadius: '24@s',
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: '28@vs',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroImage: {
+    width: '200@s',
+    height: '140@vs',
   },
   filtersRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: '12@vs',
     marginBottom: '20@vs',
-  },
-  pillsGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   filterPill: {
     flexDirection: 'row',
@@ -473,6 +551,9 @@ const styles = ScaledSheet.create({
     paddingVertical: '12@vs',
     paddingHorizontal: '18@s',
     alignItems: 'flex-start',
+    position: 'absolute',
+    right: '20@s',
+    bottom: 0,
   },
   totalBadgeLabel: {
     fontSize: '12@ms',
@@ -499,6 +580,14 @@ const styles = ScaledSheet.create({
   },
   iconContainer: {
     marginRight: '14@s',
+  },
+  iconCircle: {
+    width: '44@s',
+    height: '44@s',
+    borderRadius: '22@s',
+    backgroundColor: '#CA251B',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   itemTitle: {
     fontSize: '16@ms',
