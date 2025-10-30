@@ -46,3 +46,13 @@ export type DriverShiftDetail = {
   date: string;
   orders: DriverShiftOrder[];
 };
+
+export type DriverDeposit = {
+  id: number;
+  depositAmount: number;
+  earningsPaid: number;
+  feesDeducted: number;
+  status: string;
+  createdAt: string;
+  confirmedAt: string | null;
+};

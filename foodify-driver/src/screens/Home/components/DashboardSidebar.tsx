@@ -46,7 +46,7 @@ type DashboardSidebarProps = {
 
 const QUICK_ACTIONS: SidebarItem[] = [
   { label: 'Earnings', Icon: CircleDollarSign, route: 'EarningsScreen' },
-  { label: 'Payouts', Icon: HandCoins, route: 'RewardsScreen' },
+  { label: 'Payouts', Icon: HandCoins, route: 'PayoutsScreen' },
 ];
 
 const MENU_ITEMS: SidebarItem[] = [
@@ -83,6 +83,9 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             break;
           case 'RewardsScreen':
             navigation.navigate('RewardsScreen' as never);
+            break;
+          case 'PayoutsScreen':
+            navigation.navigate('PayoutsScreen' as never);
             break;
           case 'WalletScreen':
             navigation.navigate('WalletScreen' as never);

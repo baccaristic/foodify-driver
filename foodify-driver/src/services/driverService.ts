@@ -2,6 +2,7 @@ import { apiClient } from './api';
 import type { DriverShift, DriverShiftBalance } from '../types/shift';
 import type { OrderDto } from '../types/order';
 import type {
+  DriverDeposit,
   DriverEarningsQuery,
   DriverEarningsResponse,
   DriverShiftEarningsResponse,
@@ -208,4 +209,12 @@ export const getDriverShiftDetails = async (
   );
 
   return response.data;
+};
+
+export const getDriverDeposits = async (): Promise<DriverDeposit[]> => {
+  const response = await apiClient.get<DriverDeposit[]>(
+    '/api/driver/finance/deposits',
+  );
+
+  return Array.isArray(response.data) ? response.data : [];
 };
