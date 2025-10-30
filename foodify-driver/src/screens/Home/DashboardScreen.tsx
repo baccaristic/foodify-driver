@@ -28,6 +28,7 @@ import {
   getDriverOngoingOrder,
   getCurrentDriverShift,
   getCurrentDriverShiftBalance,
+  getDriverFinanceSummary,
   markOrderAsPickedUp,
   updateDriverAvailability,
   updateDriverLocation,
@@ -41,9 +42,10 @@ import { ActionResultModal } from '../../components/ActionResultModal';
 import { OngoingOrderStatusOverlay } from '../../components/OngoingOrderStatusOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DriverShift, DriverShiftStatus } from '../../types/shift';
+import type { DriverFinanceSummary } from '../../types/driver';
 import { OrderDto, OrderStatus } from '../../types/order';
 import { DashboardSidebar } from './components/DashboardSidebar';
-import { Menu } from 'lucide-react-native';
+import { Menu, TriangleAlert } from 'lucide-react-native';
 
 const parseShiftDate = (value: string | null | undefined): Date | null => {
   if (!value) {
@@ -177,6 +179,38 @@ const buildStatusOverlayContent = (order: OrderDto | null, status: OrderStatus):
   }
 };
 
+const parseNumericValue = (value: unknown): number | null => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = Number(value.replace(',', '.'));
+
+    return Number.isFinite(normalized) ? normalized : null;
+  }
+
+  return null;
+};
+
+const parseBooleanValue = (value: unknown): boolean => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+
+    return normalized === 'true' || normalized === '1' || normalized === 'yes';
+  }
+
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+
+  return false;
+};
+
 const EMPTY_ONGOING_ORDER_PLACEHOLDER: OrderDto = {
   id: 0,
   restaurantName: null,
@@ -257,6 +291,8 @@ export const DashboardScreen: React.FC = () => {
   const [currentShift, setCurrentShift] = useState<DriverShift | null>(null);
   const [isUpdatingShift, setIsUpdatingShift] = useState<boolean>(false);
   const [shiftBalance, setShiftBalance] = useState<number | null>(null);
+  const [financeSummary, setFinanceSummary] = useState<DriverFinanceSummary | null>(null);
+  const [isCashTooltipVisible, setCashTooltipVisible] = useState<boolean>(false);
   const hasActiveShift =
     currentShift?.status === DriverShiftStatus.ACTIVE && Boolean(currentShift.startedAt);
   const goPulse = useRef(new Animated.Value(0)).current;
@@ -287,6 +323,49 @@ export const DashboardScreen: React.FC = () => {
 
     return `${formatted} DT`;
   }, [shiftBalance]);
+
+  const cashSummary = useMemo(() => {
+    const cashValue = parseNumericValue(financeSummary?.cashOnHand ?? null);
+    const thresholdValue = parseNumericValue(financeSummary?.depositThreshold ?? null);
+
+    const cashDisplay = cashValue !== null
+      ? `${cashValue.toLocaleString('fr-FR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} DT`
+      : '0,00 DT';
+
+    const thresholdDisplay = thresholdValue !== null
+      ? `${thresholdValue.toLocaleString('fr-FR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} DT`
+      : null;
+
+    return {
+      cashValue,
+      thresholdValue,
+      cashDisplay,
+      thresholdDisplay,
+    };
+  }, [financeSummary]);
+
+  const cashOnHandValue = cashSummary.cashValue;
+  const depositThresholdValue = cashSummary.thresholdValue;
+  const cashOnHandDisplay = cashSummary.cashDisplay;
+  const depositThresholdDisplay = cashSummary.thresholdDisplay;
+
+  const isCashAtOrAboveThreshold =
+    cashOnHandValue !== null &&
+    depositThresholdValue !== null &&
+    cashOnHandValue >= depositThresholdValue;
+
+  const cashCardBackground = isCashAtOrAboveThreshold ? '#CA251B' : '#17213A';
+  const cashCardShadowColor = isCashAtOrAboveThreshold
+    ? 'rgba(202, 37, 27, 0.42)'
+    : 'rgba(15, 23, 42, 0.35)';
+  const shouldShowThresholdBadge = depositThresholdDisplay !== null;
+  const depositThresholdTooltipDisplay = depositThresholdDisplay ?? '250 DT';
 
   const callLabel = shouldCallRestaurant ? 'Call Restaurant' : 'Call Client';
   const callPhone = shouldCallRestaurant
@@ -682,22 +761,54 @@ export const DashboardScreen: React.FC = () => {
         return;
       }
 
-      const rawTotal = balance?.currentTotal ?? null;
-      const normalizedTotal =
-        typeof rawTotal === 'number'
-          ? rawTotal
-          : typeof rawTotal === 'string'
-            ? Number(rawTotal.replace(',', '.'))
-            : null;
+      const normalizedTotal = parseNumericValue(balance?.currentTotal ?? null);
 
-      setShiftBalance(
-        typeof normalizedTotal === 'number' && Number.isFinite(normalizedTotal)
-          ? normalizedTotal
-          : null,
-      );
+      setShiftBalance(normalizedTotal);
     } catch (error) {
       console.warn('[Dashboard] Failed to fetch shift balance', error);
     }
+  }, []);
+
+  const refreshFinanceSummary = useCallback(async () => {
+    try {
+      const summary = await getDriverFinanceSummary();
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      if (!summary) {
+        setFinanceSummary(null);
+        return;
+      }
+
+      setFinanceSummary({
+        cashOnHand: parseNumericValue(summary.cashOnHand),
+        unpaidEarnings: parseNumericValue(summary.unpaidEarnings),
+        outstandingDailyFees: parseNumericValue(summary.outstandingDailyFees),
+        depositThreshold: parseNumericValue(summary.depositThreshold),
+        depositRequired: parseBooleanValue(summary.depositRequired),
+        hasPendingDeposit: parseBooleanValue(summary.hasPendingDeposit),
+        nextPayoutAmount: parseNumericValue(summary.nextPayoutAmount),
+        feesToDeduct: parseNumericValue(summary.feesToDeduct),
+      });
+    } catch (error) {
+      console.warn('[Dashboard] Failed to fetch finance summary', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!financeSummary) {
+      setCashTooltipVisible(false);
+    }
+  }, [financeSummary]);
+
+  const handleCloseCashTooltip = useCallback(() => {
+    setCashTooltipVisible(false);
+  }, []);
+
+  const handleToggleCashTooltip = useCallback(() => {
+    setCashTooltipVisible((previous) => !previous);
   }, []);
 
   useEffect(() => {
@@ -715,11 +826,13 @@ export const DashboardScreen: React.FC = () => {
 
     if (!accessToken) {
       setShiftBalance(null);
+      setFinanceSummary(null);
       return;
     }
 
     void refreshShiftBalance();
-  }, [accessToken, hasHydrated, refreshShiftBalance]);
+    void refreshFinanceSummary();
+  }, [accessToken, hasHydrated, refreshFinanceSummary, refreshShiftBalance]);
 
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
@@ -861,6 +974,8 @@ export const DashboardScreen: React.FC = () => {
   }, [applyRegionUpdate]);
 
   const handleRecenter = useCallback(() => {
+    handleCloseCashTooltip();
+
     if (userRegion && mapRef.current) {
       mapRef.current.animateCamera(
         {
@@ -875,7 +990,7 @@ export const DashboardScreen: React.FC = () => {
         { duration: 750 },
       );
     }
-  }, [userRegion]);
+  }, [handleCloseCashTooltip, userRegion]);
 
   useEffect(() => {
     if (!isIncomingOrderVisible) {
@@ -1206,7 +1321,7 @@ export const DashboardScreen: React.FC = () => {
             message: 'The delivery has been confirmed successfully.',
           });
           await syncOngoingOrder();
-          await refreshShiftBalance();
+          await Promise.all([refreshShiftBalance(), refreshFinanceSummary()]);
         } else {
           setResultModal({
             status: 'error',
@@ -1236,7 +1351,13 @@ export const DashboardScreen: React.FC = () => {
         setIsProcessingDelivery(false);
       }
     },
-    [isProcessingDelivery, ongoingOrder?.id, refreshShiftBalance, syncOngoingOrder],
+    [
+      isProcessingDelivery,
+      ongoingOrder?.id,
+      refreshFinanceSummary,
+      refreshShiftBalance,
+      syncOngoingOrder,
+    ],
   );
 
   const handleCloseOrderDetails = useCallback(() => {
@@ -1358,8 +1479,9 @@ export const DashboardScreen: React.FC = () => {
   }, [hasActiveShift, isOnline, setOnlineStatus]);
 
   const handleOpenSidebar = useCallback(() => {
+    handleCloseCashTooltip();
     setIsSidebarOpen(true);
-  }, []);
+  }, [handleCloseCashTooltip]);
 
   const handleCloseSidebar = useCallback(() => {
     setIsSidebarOpen(false);
@@ -1397,10 +1519,59 @@ export const DashboardScreen: React.FC = () => {
                 <Menu style={styles.menuLine} size={moderateScale(30)}/>
               </TouchableOpacity>
 
-              <View style={styles.balancePill}>
-                <Text allowFontScaling={false} style={styles.balanceLabel}>
-                  {shiftBalanceDisplay}
-                </Text>
+              <View style={styles.balanceContainer} pointerEvents="box-none">
+                <View style={styles.balancePill}>
+                  <Text allowFontScaling={false} style={styles.balanceLabel}>
+                    {shiftBalanceDisplay}
+                  </Text>
+                </View>
+
+                <View style={styles.cashCardWrapper} pointerEvents="box-none">
+                  {isCashTooltipVisible ? (
+                    <View style={styles.cashTooltipContainer} pointerEvents="none">
+                      <View style={styles.cashTooltip}>
+                        <Text allowFontScaling={false} style={styles.cashTooltipTitle}>
+                          This is the total cash amount you are currently carrying.
+                        </Text>
+                        <Text allowFontScaling={false} style={styles.cashTooltipWarning}>
+                          ⚠️ Important: If your cash balance reaches {depositThresholdTooltipDisplay}, you must
+                          deposit it at headquarters before receiving new orders. Failure to deposit will
+                          block new order assignments until compliance.
+                        </Text>
+                      </View>
+                      <View style={styles.cashTooltipArrow} />
+                    </View>
+                  ) : null}
+
+                  <View
+                    style={[
+                      styles.cashCard,
+                      { backgroundColor: cashCardBackground, shadowColor: cashCardShadowColor },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={handleToggleCashTooltip}
+                      style={styles.cashCardPressable}
+                    >
+                      <Text allowFontScaling={false} style={styles.cashCardLabel}>
+                        Cash on hand
+                      </Text>
+                      <Text allowFontScaling={false} style={styles.cashCardAmount}>
+                        {cashOnHandDisplay}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {shouldShowThresholdBadge ? (
+                      <View style={styles.cashBadge}>
+                        <TriangleAlert color="#ffffff" size={moderateScale(16)} strokeWidth={2.5} />
+                        <Text allowFontScaling={false} style={styles.cashBadgeText}>
+                          {depositThresholdDisplay}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
               </View>
 
               <TouchableOpacity
@@ -1638,6 +1809,9 @@ const styles = StyleSheet.create({
     borderRadius: moderateScale(2),
     color:'#CA251B',
   },
+  balanceContainer: {
+    alignItems: 'center',
+  },
   balancePill: {
     paddingHorizontal: moderateScale(22),
     paddingVertical: verticalScale(10),
@@ -1653,6 +1827,90 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
     letterSpacing: moderateScale(0.4),
+  },
+  cashCardWrapper: {
+    marginTop: verticalScale(12),
+    alignItems: 'center',
+    position: 'relative',
+  },
+  cashCard: {
+    borderRadius: moderateScale(24),
+    paddingHorizontal: moderateScale(20),
+    paddingVertical: verticalScale(14),
+    minWidth: moderateScale(180),
+    shadowOffset: { width: 0, height: verticalScale(6) },
+    shadowOpacity: 0.48,
+    shadowRadius: moderateScale(12),
+    elevation: moderateScale(6),
+  },
+  cashCardPressable: { alignItems: 'center' },
+  cashCardLabel: {
+    color: '#E2E8F0',
+    fontSize: moderateScale(12),
+    fontWeight: '600',
+    letterSpacing: moderateScale(0.6),
+    textTransform: 'uppercase',
+  },
+  cashCardAmount: {
+    marginTop: verticalScale(6),
+    color: '#ffffff',
+    fontSize: moderateScale(22),
+    fontWeight: '700',
+    letterSpacing: moderateScale(0.4),
+  },
+  cashBadge: {
+    marginTop: verticalScale(12),
+    paddingHorizontal: moderateScale(14),
+    paddingVertical: verticalScale(6),
+    borderRadius: moderateScale(999),
+    backgroundColor: '#B91C1C',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(6),
+    alignSelf: 'center',
+  },
+  cashBadgeText: {
+    color: '#ffffff',
+    fontSize: moderateScale(13),
+    fontWeight: '700',
+    letterSpacing: moderateScale(0.4),
+  },
+  cashTooltipContainer: {
+    position: 'absolute',
+    bottom: '100%',
+    alignItems: 'center',
+    width: '100%',
+    paddingBottom: verticalScale(12),
+  },
+  cashTooltip: {
+    backgroundColor: 'rgba(15, 23, 42, 0.96)',
+    paddingHorizontal: moderateScale(18),
+    paddingVertical: verticalScale(14),
+    borderRadius: moderateScale(18),
+    maxWidth: moderateScale(280),
+  },
+  cashTooltipTitle: {
+    color: '#F8FAFC',
+    fontSize: moderateScale(13),
+    fontWeight: '600',
+    lineHeight: moderateScale(18),
+  },
+  cashTooltipWarning: {
+    marginTop: verticalScale(8),
+    color: '#FCD34D',
+    fontSize: moderateScale(12),
+    lineHeight: moderateScale(16),
+  },
+  cashTooltipArrow: {
+    marginTop: verticalScale(4),
+    width: 0,
+    height: 0,
+    borderLeftWidth: moderateScale(10),
+    borderRightWidth: moderateScale(10),
+    borderTopWidth: moderateScale(12),
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: 'rgba(15, 23, 42, 0.96)',
   },
   locationButton: {
     width: moderateScale(48),

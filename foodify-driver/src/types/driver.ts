@@ -56,3 +56,14 @@ export type DriverDeposit = {
   createdAt: string;
   confirmedAt: string | null;
 };
+
+export type DriverFinanceSummary = {
+  cashOnHand: number | string | null;
+  unpaidEarnings: number | string | null;
+  outstandingDailyFees: number | string | null;
+  depositThreshold: number | string | null;
+  depositRequired: boolean;
+  hasPendingDeposit: boolean;
+  nextPayoutAmount: number | string | null;
+  feesToDeduct: number | string | null;
+};
