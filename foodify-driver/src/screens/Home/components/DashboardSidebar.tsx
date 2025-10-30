@@ -15,6 +15,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   Gift,
+  HandCoins,
   Inbox,
   LogOut,
   Trash2,
@@ -44,16 +45,14 @@ type DashboardSidebarProps = {
 };
 
 const QUICK_ACTIONS: SidebarItem[] = [
-  { label: 'Inbox', Icon: Inbox, route: 'InboxScreen' },
   { label: 'Earnings', Icon: CircleDollarSign, route: 'EarningsScreen' },
-  { label: 'Rewards', Icon: Gift, route: 'RewardsScreen' },
+  { label: 'Payouts', Icon: HandCoins, route: 'RewardsScreen' },
 ];
 
 const MENU_ITEMS: SidebarItem[] = [
   { label: 'Wallet', Icon: Wallet, route: 'WalletScreen' },
   { label: 'Profile', Icon: User, route: 'ProfileSettingsScreen' },
   { label: 'Notifications', Icon: Bell, route: 'NotificationsScreen' },
-  { label: 'Delete account & Data', Icon: Trash2, route: 'DeleteAccountScreen' },
 ];
 
 export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
