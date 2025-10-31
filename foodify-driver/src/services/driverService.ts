@@ -5,6 +5,7 @@ import type {
   DriverDeposit,
   DriverEarningsQuery,
   DriverEarningsResponse,
+  DriverFinanceSummary,
   DriverShiftEarningsResponse,
   DriverShiftDetail,
 } from '../types/driver';
@@ -47,6 +48,14 @@ export const getCurrentDriverShift = async (): Promise<DriverShift | null> => {
 export const getCurrentDriverShiftBalance = async (): Promise<DriverShiftBalance | null> => {
   const response = await apiClient.get<DriverShiftBalance | null>(
     '/api/driver/shift/balance',
+  );
+
+  return response.data;
+};
+
+export const getDriverFinanceSummary = async (): Promise<DriverFinanceSummary | null> => {
+  const response = await apiClient.get<DriverFinanceSummary | null>(
+    '/api/driver/finance/summary',
   );
 
   return response.data;
