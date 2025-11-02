@@ -54,9 +54,10 @@ export const OngoingOrderDetailsOverlay: React.FC<OngoingOrderDetailsOverlayProp
       0
     ) || 0;
   const deliveryFees = (order as any).deliveryFee ?? 0;
-  const tips = (order as any).tips ?? 0;
+  const tips = (order as any).tipAmount ?? 0;
   const fees = (order as any).extrasTotal ?? 0;
-  const total = order.total ?? subTotal + deliveryFees + tips + fees;
+  const total = (order as any).total ?? subTotal + deliveryFees + tips + fees;
+  const clientCash = (order as any).cashToCollect;
 
   const formattedStatus =
     order.status === OrderStatus.DELIVERED
@@ -185,6 +186,22 @@ export const OngoingOrderDetailsOverlay: React.FC<OngoingOrderDetailsOverlayProp
             </Text>
             <Text allowFontScaling={false} style={styles.totalValue}>
               {total.toFixed(2)} DT
+            </Text>
+          </View>
+          <View style={styles.totalRow}>
+            <Text allowFontScaling={false} style={styles.totalLabel}>
+              Client will pay
+            </Text>
+            <Text allowFontScaling={false} style={styles.totalValue}>
+              {clientCash.toFixed(2)} DT
+            </Text>
+          </View>
+          <View style={styles.totalRow}>
+            <Text allowFontScaling={false} style={styles.totalLabel}>
+              Tips
+            </Text>
+            <Text allowFontScaling={false} style={styles.totalValue}>
+              {tips.toFixed(2)} DT
             </Text>
           </View>
         </View>
