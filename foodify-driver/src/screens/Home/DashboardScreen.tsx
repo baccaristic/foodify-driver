@@ -40,6 +40,7 @@ import { ScanToPickupOverlay } from '../../components/ScanToPickupOverlay';
 import { ConfirmDeliveryOverlay } from '../../components/ConfirmDeliveryOverlay';
 import { ActionResultModal } from '../../components/ActionResultModal';
 import { OngoingOrderStatusOverlay } from '../../components/OngoingOrderStatusOverlay';
+import { DepositWarningOverlay } from '../../components/DepositWarningOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DriverShift, DriverShiftStatus } from '../../types/shift';
 import type { DriverFinanceSummary } from '../../types/driver';
@@ -241,7 +242,7 @@ const EMPTY_ONGOING_ORDER_PLACEHOLDER: OrderDto = {
 
 export const DashboardScreen: React.FC = () => {
   const { user, isOnline, accessToken, hasHydrated, setOnlineStatus } = useAuth();
-  const { upcomingOrder, clearUpcomingOrder, ongoingOrderUpdate } = useWebSocketContext();
+  const { upcomingOrder, clearUpcomingOrder, ongoingOrderUpdate, depositWarning, clearDepositWarning } = useWebSocketContext();
 
   const formattedName = (user?.name || user?.email || 'Driver').toUpperCase();
   const friendlyName = useMemo(() => {
@@ -1707,6 +1708,19 @@ export const DashboardScreen: React.FC = () => {
               title={statusOverlay.title}
               message={statusOverlay.message}
               onDismiss={handleDismissStatusOverlay}
+            />
+          </>
+        )}
+        {depositWarning && (
+          <>
+            <PlatformBlurView intensity={45} tint="dark" style={styles.blurOverlay} />
+            <DepositWarningOverlay
+              title={depositWarning.title}
+              message={depositWarning.message}
+              cashOnHand={depositWarning.cashOnHand}
+              depositThreshold={depositWarning.depositThreshold}
+              deadlineHours={depositWarning.deadlineHours}
+              onDismiss={clearDepositWarning}
             />
           </>
         )}
