@@ -14,11 +14,22 @@ import { useAuth } from './AuthContext';
 import { ENV } from '../constants/env';
 import { OrderDto } from '../types/order';
 
+export interface DepositWarningMessage {
+  type: string;
+  title: string;
+  message: string;
+  cashOnHand: number;
+  depositThreshold: number;
+  deadlineHours: number;
+}
+
 interface WebSocketContextValue {
   isConnected: boolean;
   upcomingOrder: OrderDto | null;
   clearUpcomingOrder: () => void;
   ongoingOrderUpdate: OrderDto | null;
+  depositWarning: DepositWarningMessage | null;
+  clearDepositWarning: () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | undefined>(undefined);
@@ -29,6 +40,7 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [upcomingOrder, setUpcomingOrder] = useState<OrderDto | null>(null);
   const [ongoingOrderUpdate, setOngoingOrderUpdate] = useState<OrderDto | null>(null);
+  const [depositWarning, setDepositWarning] = useState<DepositWarningMessage | null>(null);
 
 
 
@@ -41,6 +53,7 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
       setIsConnected(false);
       setUpcomingOrder(null);
       setOngoingOrderUpdate(null);
+      setDepositWarning(null);
       return;
     }
 
@@ -78,6 +91,18 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
           console.warn('Received non-JSON message from /user/queue/orders:', message.body);
         }
       });
+
+      stompClient.subscribe(`/user/${user?.id}/queue/warnings`, (message: IMessage) => {
+        try {
+          const data = JSON.parse(message.body) as DepositWarningMessage;
+          console.log('⚠️ Received deposit warning:', data);
+          if (data.type === 'DEPOSIT_WARNING') {
+            setDepositWarning(data);
+          }
+        } catch {
+          console.warn('Received non-JSON message from /user/queue/warnings:', message.body);
+        }
+      });
     };
 
     stompClient.onDisconnect = () => {
@@ -98,11 +123,16 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
       setIsConnected(false);
       setUpcomingOrder(null);
       setOngoingOrderUpdate(null);
+      setDepositWarning(null);
     };
   }, [accessToken, user?.id]);
 
   const clearUpcomingOrder = useCallback(() => {
     setUpcomingOrder(null);
+  }, []);
+
+  const clearDepositWarning = useCallback(() => {
+    setDepositWarning(null);
   }, []);
 
   const value = useMemo<WebSocketContextValue>(
@@ -111,8 +141,10 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
       upcomingOrder,
       clearUpcomingOrder,
       ongoingOrderUpdate,
+      depositWarning,
+      clearDepositWarning,
     }),
-    [clearUpcomingOrder, isConnected, ongoingOrderUpdate, upcomingOrder],
+    [clearUpcomingOrder, clearDepositWarning, depositWarning, isConnected, ongoingOrderUpdate, upcomingOrder],
   );
 
   return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>;
