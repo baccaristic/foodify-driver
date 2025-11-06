@@ -99,8 +99,8 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
           if (data.type === 'DEPOSIT_WARNING') {
             setDepositWarning(data);
           }
-        } catch {
-          console.warn('Received non-JSON message from /user/queue/warnings:', message.body);
+        } catch (error) {
+          console.warn('Received non-JSON message from /user/queue/warnings:', message.body, error);
         }
       });
     };
