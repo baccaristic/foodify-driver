@@ -46,7 +46,7 @@ type DashboardSidebarProps = {
 
 const QUICK_ACTIONS: SidebarItem[] = [
   { label: 'Earnings', Icon: CircleDollarSign, route: 'EarningsScreen' },
-  { label: 'Payouts', Icon: HandCoins, route: 'PayoutsScreen' },
+  { label: 'Payout History', Icon: HandCoins, route: 'PayoutsScreen' },
 ];
 
 const MENU_ITEMS: SidebarItem[] = [
@@ -307,12 +307,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal:moderateScale(60),
   },
   quickLabel: {
     marginTop: verticalScale(8),
     color: '#ffffff',
     fontSize: moderateScale(14),
-    fontWeight: '600',
+    fontWeight: '500',
   },
   contentWrapper: {
     flex: 1,
@@ -340,17 +341,16 @@ const styles = StyleSheet.create({
     marginLeft: moderateScale(16),
     color: '#17213A',
     fontSize: moderateScale(15),
-    fontWeight: '600',
+    fontWeight: '500',
   },
   logoutButton: {
-    marginTop: verticalScale(20),
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#CA251B',
     borderRadius: moderateScale(20),
     paddingVertical: verticalScale(14),
-    marginBottom: moderateScale(200),
+    marginBottom: moderateScale(32),
   },
   logoutLabel: {
     color: '#ffffff',
