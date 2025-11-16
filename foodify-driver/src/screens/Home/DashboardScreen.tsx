@@ -46,7 +46,10 @@ import { DriverShift, DriverShiftStatus } from '../../types/shift';
 import type { DriverFinanceSummary } from '../../types/driver';
 import { OrderDto, OrderStatus } from '../../types/order';
 import { DashboardSidebar } from './components/DashboardSidebar';
-import { Menu, TriangleAlert } from 'lucide-react-native';
+import { ArrowBigUp, CircleDollarSign, Menu, TriangleAlert } from 'lucide-react-native';
+import { BlockedScreen } from '../../components/CashCard/BlockedScreen';
+import { CashCard } from '../../components/CashCard/CashCard';
+import { CashTooltip } from '../../components/CashCard/CashToolTip';
 
 const parseShiftDate = (value: string | null | undefined): Date | null => {
   if (!value) {
@@ -141,9 +144,8 @@ const buildStatusOverlayContent = (order: OrderDto | null, status: OrderStatus):
       return {
         badgeLabel: orderLabel,
         title: 'Ready for pickup',
-        message: `${orderLabel} is ready for pickup${
-          restaurantName ? ` at ${restaurantName}` : ''
-        }.`,
+        message: `${orderLabel} is ready for pickup${restaurantName ? ` at ${restaurantName}` : ''
+          }.`,
       };
     case OrderStatus.IN_DELIVERY:
       return {
@@ -243,6 +245,7 @@ const EMPTY_ONGOING_ORDER_PLACEHOLDER: OrderDto = {
 export const DashboardScreen: React.FC = () => {
   const { user, isOnline, accessToken, hasHydrated, setOnlineStatus } = useAuth();
   const { upcomingOrder, clearUpcomingOrder, ongoingOrderUpdate, depositWarning, clearDepositWarning } = useWebSocketContext();
+  const [showDepositOverlay, setShowDepositOverlay] = useState(false);
 
   const formattedName = (user?.name || user?.email || 'Driver').toUpperCase();
   const friendlyName = useMemo(() => {
@@ -281,11 +284,11 @@ export const DashboardScreen: React.FC = () => {
   const [isProcessingDelivery, setIsProcessingDelivery] = useState<boolean>(false);
   const [resultModal, setResultModal] = useState<
     | {
-        status: 'success' | 'error';
-        title: string;
-        message: string;
-        onAfterClose?: () => void;
-      }
+      status: 'success' | 'error';
+      title: string;
+      message: string;
+      onAfterClose?: () => void;
+    }
     | null
   >(null);
   const [statusOverlay, setStatusOverlay] = useState<StatusOverlayContent | null>(null);
@@ -313,7 +316,7 @@ export const DashboardScreen: React.FC = () => {
   );
 
   const shiftBalanceDisplay = useMemo(() => {
-    if (shiftBalance === null) {
+    if (shiftBalance === null || shiftBalance === undefined) {
       return '0,00 DT';
     }
 
@@ -331,16 +334,16 @@ export const DashboardScreen: React.FC = () => {
 
     const cashDisplay = cashValue !== null
       ? `${cashValue.toLocaleString('fr-FR', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })} DT`
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} DT`
       : '0,00 DT';
 
     const thresholdDisplay = thresholdValue !== null
       ? `${thresholdValue.toLocaleString('fr-FR', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })} DT`
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} DT`
       : null;
 
     return {
@@ -351,21 +354,21 @@ export const DashboardScreen: React.FC = () => {
     };
   }, [financeSummary]);
 
-  const cashOnHandValue = cashSummary.cashValue;
-  const depositThresholdValue = cashSummary.thresholdValue;
-  const cashOnHandDisplay = cashSummary.cashDisplay;
-  const depositThresholdDisplay = cashSummary.thresholdDisplay;
+  const cashOnHandValue = Number(financeSummary?.cashOnHand);
+  const depositThresholdValue = Number(financeSummary?.depositThreshold ?? 250);
+  const deadlineHours = depositWarning?.deadlineHours ?? null;
 
-  const isCashAtOrAboveThreshold =
-    cashOnHandValue !== null &&
-    depositThresholdValue !== null &&
-    cashOnHandValue >= depositThresholdValue;
+  const isCashAtOrAboveThreshold = cashOnHandValue >= depositThresholdValue;
+  const isBlocked = isCashAtOrAboveThreshold && deadlineHours !== null && deadlineHours <= 0; const cashOnHandDisplay = useMemo(
+    () => `${cashOnHandValue.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT`,
+    [cashOnHandValue]
+  );
 
-  const cashCardBackground = isCashAtOrAboveThreshold ? '#CA251B' : '#17213A';
+
+  const cashCardBackground = isCashAtOrAboveThreshold ? '#CA251B' : '#3BCA1B';
   const cashCardShadowColor = isCashAtOrAboveThreshold
     ? 'rgba(202, 37, 27, 0.42)'
-    : 'rgba(15, 23, 42, 0.35)';
-  const depositThresholdTooltipDisplay = depositThresholdDisplay ?? '250 DT';
+    : '#3BCA1B';
 
   const callLabel = shouldCallRestaurant ? 'Call Restaurant' : 'Call Client';
   const callPhone = shouldCallRestaurant
@@ -1051,9 +1054,9 @@ export const DashboardScreen: React.FC = () => {
     const dateString = isSameDay
       ? null
       : finishableDate.toLocaleDateString([], {
-          month: 'short',
-          day: 'numeric',
-        });
+        month: 'short',
+        day: 'numeric',
+      });
 
     return {
       time: timeString,
@@ -1487,6 +1490,91 @@ export const DashboardScreen: React.FC = () => {
     setIsSidebarOpen(false);
   }, []);
 
+
+
+  if (isBlocked) {
+    return (
+      <View style={styles.safeArea}>
+        <View style={styles.container}>
+          <View style={styles.mapOuter}>
+
+
+            <View pointerEvents="box-none" style={{ ...styles.mapOverlay, paddingTop: instes.top }}>
+              <View style={styles.header}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.menuButton}
+                  onPress={handleOpenSidebar}
+                >
+                  <Menu color="#CA251B" size={moderateScale(30)} />
+                </TouchableOpacity>
+
+                <View style={styles.balanceContainer} pointerEvents="box-none">
+                  <View style={styles.balancePill}>
+                    <CircleDollarSign color="#fff" size={24} />
+
+                    <Text allowFontScaling={false} style={styles.balanceLabel}>
+                      {shiftBalanceDisplay}
+                    </Text>
+                  </View>
+
+                  <View style={styles.cashCardWrapper} pointerEvents="box-none">
+                    {isCashTooltipVisible && !isCashAtOrAboveThreshold && (
+                      <View style={styles.cashTooltipContainer} pointerEvents="none">
+                        <ArrowBigUp size={moderateScale(32)} color="white" style={{
+                          backgroundColor: 'rgba(116, 122, 137, 100);', paddingHorizontal: moderateScale(16), borderRadius: moderateScale(18), marginBottom: moderateScale(10)
+                        }} />
+
+
+                        <CashTooltip
+                          cashOnHand={cashOnHandValue}
+                          depositThreshold={depositThresholdValue}
+                          deadlineHours={null}
+                          isCritical={false}
+                          isBlocked={false}
+                        />
+                      </View>
+                    )}
+
+                    <CashCard
+                      cashOnHand={cashOnHandValue}
+                      depositThreshold={depositThresholdValue}
+                      isCritical={isCashAtOrAboveThreshold}
+                      isBlocked={isBlocked}
+                      deadlineHours={deadlineHours}
+                      onPress={() => {
+                        if (isCashAtOrAboveThreshold) {
+                          setShowDepositOverlay(true);
+                        } else {
+                          handleToggleCashTooltip();
+                        }
+                      }}
+                    />
+                  </View>
+                </View>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.locationButton}
+                  onPress={handleRecenter}
+                  disabled={!userRegion}
+                >
+                  <View style={styles.locationCircle}>
+                    <View style={styles.locationDot} />
+                  </View>
+                  <View style={styles.locationPointer} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+
+
+          <BlockedScreen />;
+        </View>
+      </View>
+    )
+  }
+
   return (
     <View style={styles.safeArea}>
       <View style={styles.container}>
@@ -1516,61 +1604,52 @@ export const DashboardScreen: React.FC = () => {
                 style={styles.menuButton}
                 onPress={handleOpenSidebar}
               >
-                <Menu style={styles.menuLine} size={moderateScale(30)}/>
+                <Menu color="#CA251B" size={moderateScale(30)} />
               </TouchableOpacity>
 
               <View style={styles.balanceContainer} pointerEvents="box-none">
                 <View style={styles.balancePill}>
+                  <CircleDollarSign color="#fff" size={24} />
+
                   <Text allowFontScaling={false} style={styles.balanceLabel}>
                     {shiftBalanceDisplay}
                   </Text>
                 </View>
 
                 <View style={styles.cashCardWrapper} pointerEvents="box-none">
-                  {isCashTooltipVisible ? (
+                  {isCashTooltipVisible && !isCashAtOrAboveThreshold && (
                     <View style={styles.cashTooltipContainer} pointerEvents="none">
-                      <View style={styles.cashTooltipArrow} />
-                      <View style={styles.cashTooltip}>
-                        <Text allowFontScaling={false} style={styles.cashTooltipTitle}>
-                          This is the total cash amount you are currently carrying.
-                        </Text>
-                        <Text allowFontScaling={false} style={styles.cashTooltipWarning}>
-                          ⚠️ Important: If your cash balance reaches {depositThresholdTooltipDisplay}, you must
-                          deposit it at headquarters before receiving new orders. Failure to deposit will
-                          block new order assignments until compliance.
-                        </Text>
-                      </View>
-                    </View>
-                  ) : null}
+                      <ArrowBigUp size={moderateScale(32)} color="white" style={{
+                        backgroundColor: 'rgba(116, 122, 137, 100);', paddingHorizontal: moderateScale(16), borderRadius: moderateScale(18), marginBottom: moderateScale(10)
+                      }} />
 
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={handleToggleCashTooltip}
-                    style={styles.cashCardPressable}
-                  >
-                    <View
-                      style={[
-                        styles.cashCard,
-                        { backgroundColor: cashCardBackground, shadowColor: cashCardShadowColor },
-                      ]}
-                    >
-                      <Text allowFontScaling={false} style={styles.cashCardLabel}>
-                        Cash on hand
-                      </Text>
-                      <Text allowFontScaling={false} style={styles.cashCardAmount}>
-                        {cashOnHandDisplay}
-                      </Text>
 
-                      {isCashAtOrAboveThreshold ? (
-                        <View style={styles.cashWarningIndicator}>
-                          <TriangleAlert color="#ffffff" size={moderateScale(14)} strokeWidth={2.25} />
-                        </View>
-                      ) : null}
+                      <CashTooltip
+                        cashOnHand={cashOnHandValue}
+                        depositThreshold={depositThresholdValue}
+                        deadlineHours={null}
+                        isCritical={false}
+                        isBlocked={false}
+                      />
                     </View>
-                  </TouchableOpacity>
+                  )}
+
+                  <CashCard
+                    cashOnHand={cashOnHandValue}
+                    depositThreshold={depositThresholdValue}
+                    isCritical={isCashAtOrAboveThreshold}
+                    isBlocked={isBlocked}
+                    deadlineHours={deadlineHours}
+                    onPress={() => {
+                      if (isCashAtOrAboveThreshold) {
+                        setShowDepositOverlay(true);
+                      } else {
+                        handleToggleCashTooltip();
+                      }
+                    }}
+                  />
                 </View>
               </View>
-
               <TouchableOpacity
                 activeOpacity={0.85}
                 style={styles.locationButton}
@@ -1646,7 +1725,7 @@ export const DashboardScreen: React.FC = () => {
               </View>
             ) : (
               <Text allowFontScaling={false} style={styles.footerSubtitle}>
-                Ready to work ?
+                Ready to work?
               </Text>
             )}
           </View>
@@ -1664,6 +1743,20 @@ export const DashboardScreen: React.FC = () => {
             />
           </View>
         </View>
+
+        {showDepositOverlay && (
+          <>
+            <PlatformBlurView intensity={60} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <DepositWarningOverlay
+              title="24 Hours to Deposit!"
+              message={`You have ${cashOnHandDisplay} in cash.\nDeposit required within 24 hours to continue receiving orders.`}
+              cashOnHand={cashOnHandValue}
+              depositThreshold={depositThresholdValue}
+              deadlineHours={deadlineHours ?? 24}
+              onDismiss={() => setShowDepositOverlay(false)}
+            />
+          </>
+        )}
 
         {isIncomingOrderVisible && (
           <>
@@ -1817,16 +1910,19 @@ const styles = StyleSheet.create({
     width: moderateScale(24),
     height: verticalScale(3),
     borderRadius: moderateScale(2),
-    color:'#CA251B',
+    color: '#CA251B',
   },
   balanceContainer: {
     alignItems: 'center',
   },
   balancePill: {
-    paddingHorizontal: moderateScale(22),
-    paddingVertical: verticalScale(10),
+    gap: moderateScale(5),
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: moderateScale(32),
+    paddingVertical: verticalScale(12),
+    borderRadius: moderateScale(20),
     backgroundColor: '#CA251B',
-    borderRadius: moderateScale(999),
     shadowColor: 'rgba(202, 37, 27, 0.4)',
     shadowOffset: { width: 0, height: verticalScale(4) },
     shadowOpacity: 0.6,
@@ -1876,8 +1972,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '100%',
     alignItems: 'center',
-    width: '100%',
-    paddingTop: verticalScale(12),
+    marginTop: moderateScale(20),
+    zIndex: 9999,
   },
   cashTooltip: {
     backgroundColor: 'rgba(15, 23, 42, 0.96)',

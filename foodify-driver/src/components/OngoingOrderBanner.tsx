@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ScanLine } from 'lucide-react-native';
+import { Phone, ScanLine } from 'lucide-react-native';
 import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 
 const formatOrderStatus = (status?: string | null) => {
@@ -84,7 +84,7 @@ export const OngoingOrderBanner: React.FC<OngoingOrderBannerProps> = ({
             {callLabel}
           </Text>
           <Text allowFontScaling={false} style={styles.callIcon}>
-            📞
+            <Phone color="#fff"/>
           </Text>
         </View>
       </TouchableOpacity>
@@ -200,12 +200,12 @@ const styles = StyleSheet.create({
     maxWidth: moderateScale(380),
   },
   callButton: {
-    backgroundColor: '#27C36F',
+    backgroundColor: '#3BCA1B',
     borderRadius: moderateScale(28),
     paddingVertical: verticalScale(10),
     paddingHorizontal: scale(24),
     marginBottom: verticalScale(14),
-    shadowColor: '#27C36F',
+    shadowColor: '#3BCA1B',
     shadowOpacity: 0.22,
     shadowRadius: moderateScale(12),
     shadowOffset: { width: 0, height: verticalScale(6) },
