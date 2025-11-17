@@ -51,6 +51,6 @@ export const checkDriverSession = async (
   return response.data;
 };
 export const logout = async (payload: LogoutRequest): Promise<{ success: boolean }> => {
-  const response = await apiClient.post<{ success: boolean }>('/auth/logout', payload);
+  const response = await apiClient.post<{ success: boolean }>('/auth/driver/logout', payload);
   return response.data;
 };
