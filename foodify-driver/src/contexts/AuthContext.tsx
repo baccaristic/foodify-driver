@@ -1,13 +1,16 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useCallback, useContext, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { logout as logoutRequest } from '../services/authService';
 import { AuthState, useAuthStore } from '../store/authStore';
+import { DriverUser } from '../types/auth';
 
 const REFRESH_TOKEN_KEY = 'refreshToken';
 const USER_KEY = 'authUser';
 
 type AuthContextValue = AuthState & {
   logoutAndRedirect: () => Promise<void>;
+  updateUser: (nextUser: DriverUser) => Promise<void>;
+
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -18,6 +21,15 @@ type AuthProviderProps = {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const state = useAuthStore();
+  const [user,setUser] = useState<DriverUser | null>(null);
+
+  const persistUser = useCallback(async (nextUser: DriverUser | null) => {
+    if (nextUser) {
+      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(nextUser));
+    } else {
+      await SecureStore.deleteItemAsync(USER_KEY);
+    }
+  }, []);
 
   const logoutAndRedirect = async () => {
     try {
@@ -36,12 +48,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.warn('Logout failed!', error);
     }
   };
+  const updateUser = useCallback(
+    async (nextUser: DriverUser) => {
+      setUser(nextUser);
+      await persistUser(nextUser);
+    },
+    [persistUser],
+  );
 
   return (
-    <AuthContext.Provider value={{ ...state, logoutAndRedirect }}>
+    <AuthContext.Provider value={{ ...state, updateUser,logoutAndRedirect }}>
       {children}
     </AuthContext.Provider>
-  );
+  ); 
 };
 
 export const useAuth = (): AuthContextValue => {

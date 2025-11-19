@@ -30,6 +30,7 @@ declare module 'axios' {
   export interface AxiosInstance {
     (config: AxiosRequestConfig): Promise<AxiosResponse>;
     post<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
+    put<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
     get<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
     create: (config?: AxiosRequestConfig) => AxiosInstance;
     interceptors: {
