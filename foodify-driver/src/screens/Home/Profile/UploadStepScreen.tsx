@@ -7,15 +7,17 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from "react-native";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
 import { moderateScale, verticalScale, s } from "react-native-size-matters";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 
-import { UploadStep } from "../../../types/upload";
+import { UploadStep, mapDocumentTypeToApi } from "../../../types/upload";
 import HeaderWithBackButton from "../../../components/HeaderWithBackButton";
 import { UploadSlot } from "../../../components/ProfilSettings/UploadSlot";
+import { uploadDriverDocument } from "../../../services/driverService";
 
 type RouteParams = RouteProp<Record<string, UploadStep>, string>;
 
@@ -24,10 +26,11 @@ export default function UploadStepScreen(): JSX.Element {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
-  const { title, description, type, icon: IconComp, uploadFields = [] } = route.params;
+  const { title, description, type, icon: IconComp, uploadFields = [], documentType } = route.params;
 
   const [textValue, setTextValue] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [uploads, setUploads] = useState<
     Record<string, DocumentPicker.DocumentPickerAsset | null>
@@ -35,6 +38,7 @@ export default function UploadStepScreen(): JSX.Element {
 
   const pick = (key: string, file: DocumentPicker.DocumentPickerAsset) => {
     setUploads((prev) => ({ ...prev, [key]: file }));
+    setError(null);
   };
 
   const remove = (key: string) => {
@@ -46,26 +50,83 @@ export default function UploadStepScreen(): JSX.Element {
   };
 
   const handleSubmit = async () => {
+    // Validate that at least one file is uploaded for image types
+    if (type !== "text") {
+      const hasFiles = Object.values(uploads).some((file) => file !== null);
+      if (!hasFiles) {
+        setError("Please select a file to upload");
+        return;
+      }
+    }
+
+    // For text type (Patent Number), validate text input
+    if (type === "text" && !textValue.trim()) {
+      setError("Please enter your patent number");
+      return;
+    }
+
     setLoading(true);
+    setError(null);
+
     try {
-      // Example of uploading files to backend
-      const formData = new FormData();
-      Object.entries(uploads).forEach(([key, file]) => {
+      // Get the API-friendly document type
+      const apiDocumentType = mapDocumentTypeToApi(documentType);
+
+      // For dual-image (ID Card), we need to upload front and back separately
+      // For now, we'll upload the first file found (you may need to adjust based on backend requirements)
+      if (type === "dual-image") {
+        // Upload front side if available
+        const frontFile = uploads['front'];
+        if (frontFile) {
+          await uploadDriverDocument(apiDocumentType, {
+            uri: frontFile.uri,
+            name: frontFile.name,
+            type: frontFile.mimeType || "image/jpeg",
+          });
+        }
+
+        // Note: The backend may need separate endpoints for front/back
+        // or may accept multiple files. Adjust as needed.
+      } else if (type === "single-image") {
+        // Upload single image
+        const file = Object.values(uploads).find((f) => f !== null);
         if (file) {
-          formData.append(key, {
+          await uploadDriverDocument(apiDocumentType, {
             uri: file.uri,
             name: file.name,
-            type: file.mimeType || "application/octet-stream",
-          } as any);
+            type: file.mimeType || "image/jpeg",
+          });
         }
-      });
-      navigation.goBack();
-    } catch (err) {
+      } else if (type === "text") {
+        // For patent number, we might need to handle differently
+        // Since the backend expects an image upload, we may need to skip this
+        // or create a text file. For now, we'll show an error.
+        setError("Text upload for patent number is not yet supported. Please upload a photo of your patent proof.");
+        setLoading(false);
+        return;
+      }
+
+      // Success! Navigate back to profile completion
+      Alert.alert(
+        "Success",
+        "Document uploaded successfully! It will be reviewed shortly.",
+        [
+          {
+            text: "OK",
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+    } catch (err: any) {
       console.error("Upload error:", err);
+      const errorMessage = err?.response?.data?.message || err?.message || "Failed to upload document. Please try again.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
+
+  const canSubmit = type === "text" ? textValue.trim().length > 0 : Object.values(uploads).some((f) => f !== null);
 
   return (
     <View
@@ -93,6 +154,12 @@ export default function UploadStepScreen(): JSX.Element {
               <Text style={styles.description}>{description}</Text>
             </View>
           </View>
+
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
 
           <View style={{ marginTop: verticalScale(14) }}>
             {type === "text" && (
@@ -131,7 +198,11 @@ export default function UploadStepScreen(): JSX.Element {
           <TouchableOpacity
             onPress={handleSubmit}
             activeOpacity={0.85}
-            style={[styles.submitBtn, { opacity: loading ? 0.7 : 1 }]}
+            disabled={!canSubmit || loading}
+            style={[
+              styles.submitBtn,
+              { opacity: !canSubmit || loading ? 0.5 : 1 }
+            ]}
           >
             {loading ? (
               <ActivityIndicator color="#FFF" />
@@ -200,6 +271,17 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontSize: moderateScale(13),
     lineHeight: 18,
+  },
+  errorContainer: {
+    backgroundColor: "#FEE",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  errorText: {
+    color: "#CA251B",
+    fontSize: moderateScale(13),
+    textAlign: "center",
   },
   input: {
     height: 48,

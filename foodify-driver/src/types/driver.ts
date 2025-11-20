@@ -67,3 +67,49 @@ export type DriverFinanceSummary = {
   nextPayoutAmount: number | string | null;
   feesToDeduct: number | string | null;
 };
+
+// Driver Document Verification Types
+export type DriverDocumentType = 
+  | 'ID_CARD' 
+  | 'PROFILE_PICTURE' 
+  | 'BULLETIN_N3' 
+  | 'UTILITY_BILL' 
+  | 'PATENT_NUMBER';
+
+export type DriverDocumentStatus = 
+  | 'PENDING_REVIEW' 
+  | 'APPROVED' 
+  | 'REJECTED';
+
+export type DriverVerificationStatus = 
+  | 'PENDING_DOCUMENTS' 
+  | 'IN_REVIEW' 
+  | 'REJECTED' 
+  | 'APPROVED';
+
+export type DriverDocumentState = 
+  | 'MISSING' 
+  | 'PENDING_REVIEW' 
+  | 'APPROVED' 
+  | 'REJECTED';
+
+export type DriverDocumentDto = {
+  type: DriverDocumentType;
+  title: string;
+  instructions: string;
+  state: DriverDocumentState;
+  imageUrl: string | null;
+  rejectionReason: string | null;
+  uploadedAt: string | null;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+};
+
+export type DriverVerificationSummaryDto = {
+  driverId: number;
+  status: DriverVerificationStatus;
+  totalDocuments: number;
+  submittedDocuments: number;
+  approvedDocuments: number;
+  documents: DriverDocumentDto[];
+};
