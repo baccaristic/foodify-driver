@@ -1,7 +1,7 @@
-import React, { JSX, useEffect, useState } from 'react';
+import React, { JSX, useEffect, useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { moderateScale, verticalScale, s } from 'react-native-size-matters';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
     IdCard,
     Upload,
@@ -97,41 +97,49 @@ export default function ProfileCompletionScreen(): JSX.Element {
     const [steps, setSteps] = useState<UploadStep[]>([]);
 
     // Fetch document verification status
-    useEffect(() => {
-        const fetchDocuments = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                const data = await getDriverDocuments();
-                setSummary(data);
+    const fetchDocuments = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const data = await getDriverDocuments();
+            setSummary(data);
 
-                // Map API documents to UI steps
-                const updatedSteps = baseSteps.map((baseStep) => {
-                    const apiDoc = data.documents.find(
-                        (doc: DriverDocumentDto) => doc.type === baseStep.documentType
-                    );
+            // Map API documents to UI steps
+            const updatedSteps = baseSteps.map((baseStep) => {
+                const apiDoc = data.documents.find(
+                    (doc: DriverDocumentDto) => doc.type === baseStep.documentType
+                );
 
-                    return {
-                        ...baseStep,
-                        status: apiDoc ? mapDocumentStateToStatus(apiDoc.state) : 'upload',
-                        rejectionReason: apiDoc?.rejectionReason || undefined,
-                    } as UploadStep;
-                });
+                return {
+                    ...baseStep,
+                    status: apiDoc ? mapDocumentStateToStatus(apiDoc.state) : 'upload',
+                    rejectionReason: apiDoc?.rejectionReason || undefined,
+                } as UploadStep;
+            });
 
-                setSteps(updatedSteps);
-            } catch (err) {
-                console.error('Error fetching documents:', err);
-                setError('Failed to load document status. Please try again.');
-                
-                // Fallback to default steps if API fails
-                setSteps(baseSteps.map(step => ({ ...step, status: 'upload' as const })));
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchDocuments();
+            setSteps(updatedSteps);
+        } catch (err) {
+            console.error('Error fetching documents:', err);
+            setError('Failed to load document status. Please try again.');
+            
+            // Fallback to default steps if API fails
+            setSteps(baseSteps.map(step => ({ ...step, status: 'upload' as const })));
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    // Refresh on initial mount
+    useEffect(() => {
+        fetchDocuments();
+    }, [fetchDocuments]);
+
+    // Refresh when screen comes into focus (e.g., after uploading a document)
+    useFocusEffect(
+        useCallback(() => {
+            fetchDocuments();
+        }, [fetchDocuments])
+    );
 
     const completed = summary?.approvedDocuments || 0;
     const total = summary?.totalDocuments || 5;
