@@ -104,6 +104,12 @@ export default function ProfileCompletionScreen(): JSX.Element {
             const data = await getDriverDocuments();
             setSummary(data);
 
+            // If status is APPROVED, redirect to dashboard immediately
+            if (data.status === 'APPROVED') {
+                navigation.replace('DashboardScreen');
+                return;
+            }
+
             // Map API documents to UI steps
             const updatedSteps = baseSteps.map((baseStep) => {
                 const apiDoc = data.documents.find(
@@ -127,7 +133,7 @@ export default function ProfileCompletionScreen(): JSX.Element {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [navigation]);
 
     // Refresh on initial mount
     useEffect(() => {

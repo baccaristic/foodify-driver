@@ -1,29 +1,55 @@
 import React from "react";
-import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
-import * as DocumentPicker from "expo-document-picker";
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { Trash2, Upload } from "lucide-react-native";
 import { moderateScale, s, verticalScale } from "react-native-size-matters";
 
+type ImageAsset = {
+  uri: string;
+  name: string;
+  mimeType?: string;
+};
+
 type Props = {
   label: string;
-  file?: DocumentPicker.DocumentPickerAsset | null;
-  onPick: (file: DocumentPicker.DocumentPickerAsset) => void;
+  file?: ImageAsset | null;
+  onPick: (file: ImageAsset) => void;
   onRemove: () => void;
 };
 
 export const UploadSlot: React.FC<Props> = ({ label, file, onPick, onRemove }) => {
   const pickFile = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ["image/*"],
-        copyToCacheDirectory: true,
+      // Request permission to access media library
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your photo library to upload images.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Launch image picker with gallery
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        onPick(result.assets[0]);
+        const asset = result.assets[0];
+        onPick({
+          uri: asset.uri,
+          name: asset.fileName || `image_${Date.now()}.jpg`,
+          mimeType: asset.mimeType || 'image/jpeg',
+        });
       }
     } catch (error) {
-      console.warn("File picking error:", error);
+      console.warn("Image picking error:", error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   };
 

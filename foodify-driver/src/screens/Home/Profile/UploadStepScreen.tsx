@@ -12,12 +12,17 @@ import {
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
 import { moderateScale, verticalScale, s } from "react-native-size-matters";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as DocumentPicker from "expo-document-picker";
 
 import { UploadStep, mapDocumentTypeToApi } from "../../../types/upload";
 import HeaderWithBackButton from "../../../components/HeaderWithBackButton";
 import { UploadSlot } from "../../../components/ProfilSettings/UploadSlot";
 import { uploadDriverDocument } from "../../../services/driverService";
+
+type ImageAsset = {
+  uri: string;
+  name: string;
+  mimeType?: string;
+};
 
 type RouteParams = RouteProp<Record<string, UploadStep>, string>;
 
@@ -33,10 +38,10 @@ export default function UploadStepScreen(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
 
   const [uploads, setUploads] = useState<
-    Record<string, DocumentPicker.DocumentPickerAsset | null>
+    Record<string, ImageAsset | null>
   >({});
 
-  const pick = (key: string, file: DocumentPicker.DocumentPickerAsset) => {
+  const pick = (key: string, file: ImageAsset) => {
     setUploads((prev) => ({ ...prev, [key]: file }));
     setError(null);
   };
