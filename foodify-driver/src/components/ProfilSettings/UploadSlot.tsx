@@ -15,7 +15,7 @@ export const UploadSlot: React.FC<Props> = ({ label, file, onPick, onRemove }) =
   const pickFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ["image/*", "application/pdf"],
+        type: ["image/*"],
         copyToCacheDirectory: true,
       });
 
