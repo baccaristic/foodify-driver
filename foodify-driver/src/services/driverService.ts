@@ -8,6 +8,8 @@ import type {
   DriverFinanceSummary,
   DriverShiftEarningsResponse,
   DriverShiftDetail,
+  DriverVerificationSummaryDto,
+  DriverDocumentType,
 } from '../types/driver';
 
 export type DriverHeartbeatPayload = {
@@ -230,4 +232,45 @@ export const getDriverDeposits = async (): Promise<DriverDeposit[]> => {
   );
 
   return Array.isArray(response.data) ? response.data : [];
+};
+
+// Driver Document Verification Services
+
+/**
+ * Get driver verification summary with all document statuses
+ */
+export const getDriverDocuments = async (): Promise<DriverVerificationSummaryDto> => {
+  const response = await apiClient.get<DriverVerificationSummaryDto>('/api/driver/documents');
+  return response.data;
+};
+
+/**
+ * Upload a document for driver verification
+ * @param documentType - Type of document (ID_CARD, PROFILE_PICTURE, BULLETIN_N3, UTILITY_BILL, PATENT_NUMBER)
+ * @param file - File to upload (image)
+ */
+export const uploadDriverDocument = async (
+  documentType: DriverDocumentType | string,
+  file: { uri: string; name: string; type: string }
+): Promise<DriverVerificationSummaryDto> => {
+  const formData = new FormData();
+  
+  // Append file to FormData
+  formData.append('file', {
+    uri: file.uri,
+    name: file.name,
+    type: file.type,
+  } as any);
+
+  const response = await apiClient.post<DriverVerificationSummaryDto>(
+    `/api/driver/documents/${documentType}`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+
+  return response.data;
 };
