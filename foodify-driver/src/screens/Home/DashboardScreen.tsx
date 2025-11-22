@@ -25,6 +25,7 @@ import { useWebSocketContext } from '../../contexts/WebSocketContext';
 import {
   acceptOrder,
   confirmOrderDelivery,
+  declineOrder,
   getDriverOngoingOrder,
   getCurrentDriverShift,
   getCurrentDriverShiftBalance,
@@ -1184,11 +1185,30 @@ export const DashboardScreen: React.FC = () => {
     pendingIncomingOrder,
   ]);
 
-  const handleDeclineOrder = useCallback(() => {
-    setIncomingOrderVisible(false);
-    setPendingIncomingOrder(null);
-    clearUpcomingOrder();
-  }, [clearUpcomingOrder]);
+  const handleDeclineOrder = useCallback(async () => {
+    const orderId = pendingIncomingOrder?.id;
+
+    if (!orderId) {
+      setIncomingOrderVisible(false);
+      setPendingIncomingOrder(null);
+      clearUpcomingOrder();
+      return;
+    }
+
+    try {
+      await declineOrder(orderId);
+      setIncomingOrderVisible(false);
+      setPendingIncomingOrder(null);
+      clearUpcomingOrder();
+    } catch (error) {
+      console.warn('[Dashboard] Failed to decline order', error);
+      Alert.alert('Unable to decline order', 'Please try again in a moment.');
+    }
+  }, [
+    clearUpcomingOrder,
+    declineOrder,
+    pendingIncomingOrder,
+  ]);
 
   const callTargetLabel = shouldCallRestaurant ? 'restaurant' : 'client';
 

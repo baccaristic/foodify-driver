@@ -135,6 +135,10 @@ export const confirmOrderDelivery = async (payload: ConfirmDeliveryPayload): Pro
   return response.data === true;
 };
 
+export const declineOrder = async (orderId: number | string): Promise<void> => {
+  await apiClient.post(`/api/driver/decline-order/${orderId}`);
+};
+
 export const acceptOrder = async (orderId: number | string): Promise<OrderDto> => {
   const response = await apiClient.post<OrderDto>(
     `/api/driver/accept-order/${orderId}`,

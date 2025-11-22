@@ -45,7 +45,7 @@ const config: ExpoConfig = {
     favicon: './assets/favicon.png',
   },
   extra: {
-    baseApiUrl: process.env.BASE_API_URL ?? process.env.EXPO_PUBLIC_BASE_API_URL ?? 'http://102.211.209.177:8084',
+    baseApiUrl: process.env.BASE_API_URL ?? process.env.EXPO_PUBLIC_BASE_API_URL ?? 'https://apiv3.foodifytn.app',
     websocketUrl:
       process.env.WEBSOCKET_URL ?? process.env.EXPO_PUBLIC_WEBSOCKET_URL ?? 'wss://ws.foodify.example',
   },
